@@ -61,8 +61,8 @@ def _build_wav(header_bytes: bytes, data_offset: int, audio_data: bytes) -> byte
     """
     audio_len = len(audio_data)
     wav = bytearray(header_bytes[: data_offset + 8] + audio_data)
-    struct.pack_into("<I", wav, data_offset + 4, audio_len)       # data chunk size
-    struct.pack_into("<I", wav, 4, len(wav) - 8)                  # RIFF size
+    struct.pack_into("<I", wav, data_offset + 4, audio_len)  # data chunk size
+    struct.pack_into("<I", wav, 4, len(wav) - 8)  # RIFF size
     return bytes(wav)
 
 
@@ -79,12 +79,16 @@ def download_audio(
     """
     s3 = _s3()
 
-    header_bytes = s3.get_object(Bucket=BUCKET, Key=key, Range="bytes=0-511")["Body"].read()
+    header_bytes = s3.get_object(Bucket=BUCKET, Key=key, Range="bytes=0-511")[
+        "Body"
+    ].read()
     data_offset, full_data_size = _find_data_chunk(header_bytes)
     audio_start = data_offset + 8
 
     if limit_s is not None:
-        audio_bytes_wanted = min(int(limit_s * _NATIVE_SR * _BYTES_PER_SAMPLE), full_data_size)
+        audio_bytes_wanted = min(
+            int(limit_s * _NATIVE_SR * _BYTES_PER_SAMPLE), full_data_size
+        )
     else:
         audio_bytes_wanted = full_data_size
 
@@ -92,7 +96,9 @@ def download_audio(
     log.debug("Downloading %.0fMB from s3://%s/%s", mb, BUCKET, key)
 
     end_byte = audio_start + audio_bytes_wanted - 1
-    audio_data = s3.get_object(Bucket=BUCKET, Key=key, Range=f"bytes={audio_start}-{end_byte}")["Body"].read()
+    audio_data = s3.get_object(
+        Bucket=BUCKET, Key=key, Range=f"bytes={audio_start}-{end_byte}"
+    )["Body"].read()
 
     wav_bytes = _build_wav(header_bytes, data_offset, audio_data)
 
@@ -124,7 +130,9 @@ def stream_chunks(
     Detection windows are stateless so chunking produces identical results.
     """
     s3 = _s3()
-    header_bytes = s3.get_object(Bucket=BUCKET, Key=key, Range="bytes=0-511")["Body"].read()
+    header_bytes = s3.get_object(Bucket=BUCKET, Key=key, Range="bytes=0-511")[
+        "Body"
+    ].read()
     data_offset, full_data_size = _find_data_chunk(header_bytes)
     audio_start = data_offset + 8
     total_s = full_data_size / (_NATIVE_SR * _BYTES_PER_SAMPLE)

@@ -24,9 +24,18 @@ packages = ["whalu"]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
+[tool.mypy]
+python_version = "3.12"
+ignore_missing_imports = true
+strict = false
+
 [tool.uv]
 dev-dependencies = [
     "ipykernel>=6.0",
     "jupyter>=1.0",
+    "mypy>=1.20.0",
+    "pre-commit>=4.5.1",
     "pyright>=1.1",
+    "pytest>=9.0.2",
+    "pytest-cov>=7.1.0",
 ]

@@ -31,4 +31,3 @@ def setup_logging(level: int = logging.INFO) -> None:
     logging.getLogger("urllib3").setLevel(logging.WARNING)
     logging.getLogger("tensorflow").setLevel(logging.ERROR)
     logging.getLogger("absl").setLevel(logging.ERROR)
-

@@ -14,8 +14,8 @@ class SourceInfo:
     detection_range_km: str
     sample_rate_hz: int
     bit_depth: int
-    coverage: str          # date range
-    volume: str            # approximate total size
+    coverage: str  # date range
+    volume: str  # approximate total size
     file_format: str
     s3_bucket: str
     s3_path_format: str

@@ -28,7 +28,10 @@ def add_timestamps(df: pl.DataFrame) -> pl.DataFrame:
     base_ts = [int(d.timestamp()) for d in dates]
 
     return df.with_columns(
-        ((pl.Series("_base_ts", base_ts) + pl.col("time_start_s").cast(pl.Int64)) * 1_000)
+        (
+            (pl.Series("_base_ts", base_ts) + pl.col("time_start_s").cast(pl.Int64))
+            * 1_000
+        )
         .cast(pl.Datetime("ms", "UTC"))
         .alias("timestamp")
     ).with_columns(
@@ -85,9 +88,7 @@ def hourly_activity(df: pl.DataFrame, top_n: int = 5) -> tuple[pl.DataFrame, lis
         rank1.filter(pl.col("species").is_in(top_species))
         .group_by(["hour", "species"])
         .agg(pl.len().alias("n"))
-        .with_columns(
-            (pl.col("n") / WINDOWS_PER_HOUR * 100).round(1).alias("rate")
-        )
+        .with_columns((pl.col("n") / WINDOWS_PER_HOUR * 100).round(1).alias("rate"))
         .pivot(on="species", index="hour", values="rate", aggregate_function="mean")
         .sort("hour")
     )

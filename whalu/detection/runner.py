@@ -13,8 +13,10 @@ from scipy.special import expit  # sigmoid
 
 log = logging.getLogger(__name__)
 
-HOP_SIZE_S = 2.5       # seconds between window starts
-THRESHOLD = 0.5        # sigmoid threshold — logit > 0 means the model is positive on this class
+HOP_SIZE_S = 2.5  # seconds between window starts
+THRESHOLD = (
+    0.5  # sigmoid threshold — logit > 0 means the model is positive on this class
+)
 
 
 def run_detections(
@@ -42,7 +44,11 @@ def run_detections(
 
     log.debug(
         "%.1fs audio → %d windows (%.1fs window, %.1fs hop, threshold=%.2f)",
-        len(audio) / sr, n_frames, window_size_s, HOP_SIZE_S, threshold,
+        len(audio) / sr,
+        n_frames,
+        window_size_s,
+        HOP_SIZE_S,
+        threshold,
     )
 
     sources: list[str] = []
@@ -84,11 +90,13 @@ def run_detections(
 
     log.debug("Emitted %d detection rows from %d windows", len(sources), n_frames)
 
-    return pl.DataFrame({
-        "source": sources,
-        "time_start_s": starts,
-        "time_end_s": ends,
-        "species": species_list,
-        "confidence": confidences,
-        "rank": ranks,
-    })
+    return pl.DataFrame(
+        {
+            "source": sources,
+            "time_start_s": starts,
+            "time_end_s": ends,
+            "species": species_list,
+            "confidence": confidences,
+            "rank": ranks,
+        }
+    )
