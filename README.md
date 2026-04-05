@@ -4,6 +4,7 @@
 [![Python](https://img.shields.io/badge/python-3.11%2B-blue)](https://pypi.org/project/whalu/)
 [![code checks](https://github.com/amrit110/whalu/actions/workflows/code_checks.yml/badge.svg)](https://github.com/amrit110/whalu/actions/workflows/code_checks.yml)
 [![unit tests](https://github.com/amrit110/whalu/actions/workflows/unit_tests.yml/badge.svg)](https://github.com/amrit110/whalu/actions/workflows/unit_tests.yml)
+[![codecov](https://codecov.io/gh/amrit110/whalu/branch/main/graph/badge.svg)](https://codecov.io/gh/amrit110/whalu)
 [![License](https://img.shields.io/github/license/amrit110/whalu)](LICENSE.md)
 
 Marine bioacoustics detection pipeline. Slides a 5-second window over continuous hydrophone recordings, runs the Google Perch multispecies whale model, and stores detections as Parquet files for analysis.
