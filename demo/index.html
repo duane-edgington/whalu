@@ -178,6 +178,19 @@
         <div id="legend" class="legend"></div>
       </section>
 
+      <!-- novelty curve -->
+      <section class="novelty-section" id="novelty-section">
+        <div class="tl-header">
+          <span class="sec-label">Acoustic novelty (Perch v2)</span>
+          <span class="tl-hint">Cosine distance between adjacent 5s windows · spikes mark acoustic boundaries</span>
+        </div>
+        <div class="tl-wrap" id="nv-wrap">
+          <canvas id="nv-canvas"></canvas>
+          <div id="nv-cursor" class="tl-cursor"></div>
+          <div id="nv-tooltip" class="tl-tooltip"></div>
+        </div>
+      </section>
+
       <!-- active detections -->
       <section class="active-section">
         <div class="active-header">

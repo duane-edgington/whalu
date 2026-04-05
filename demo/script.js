@@ -25,6 +25,9 @@ function spMeta(code) {
   return SP[code] || { name: code, sci: "", emoji: "·", color: "#6b7280" };
 }
 
+// ── Novelty state ──────────────────────────────────────────────────
+let noveltyWindows = [];  // [{t, novelty}]
+
 // ── State ──────────────────────────────────────────────────────────
 const state = {
   dets:        [],
@@ -58,6 +61,10 @@ const legend     = $("legend");
 const activeCards= $("active-cards");
 const emptyMsg   = $("empty-msg");
 const statsList  = $("stats-list");
+const nvCanvas   = $("nv-canvas");
+const nvCursor   = $("nv-cursor");
+const nvWrap     = $("nv-wrap");
+const nvTooltip  = $("nv-tooltip");
 // ── Timeline layout constants ──────────────────────────────────────
 const TL_LABEL_W = 44;   // px reserved for species code labels on the left
 const TL_TRACK_H = 18;   // px height of each species row
@@ -92,6 +99,19 @@ async function init() {
 
   // Load audio
   await loadAudio();
+
+  // Load novelty embeddings (optional - panel hidden if unavailable)
+  try {
+    const nr = await fetch("data/embeddings.json");
+    if (nr.ok) {
+      const nj = await nr.json();
+      noveltyWindows = nj.windows || [];
+    }
+  } catch (_) { /* no embeddings file */ }
+  if (!noveltyWindows.length) {
+    const ns = document.getElementById("novelty-section");
+    if (ns) ns.style.display = "none";
+  }
 
   $("loading").classList.add("hidden");
   $("vis").classList.remove("hidden");
@@ -156,6 +176,7 @@ function loadData(data) {
   buildLegend();
   drawTimeline();
   drawMini();
+  drawNovelty();
   buildStats();
   updateActiveCards();
   updatePosition();
@@ -209,8 +230,10 @@ function updatePosition() {
   timeCur.textContent  = fmtTime(state.currentTime);
   scrFill.style.width  = `${pct * 100}%`;
   scrCursor.style.left = `${pct * 100}%`;
-  // Cursor lives inside the plot area (right of label margin)
-  tlCursor.style.left  = `${TL_LABEL_W + pct * (canW - TL_LABEL_W)}px`;
+  // Cursors live inside the plot area (right of label margin)
+  const curX = `${TL_LABEL_W + pct * (canW - TL_LABEL_W)}px`;
+  tlCursor.style.left  = curX;
+  if (noveltyWindows.length) nvCursor.style.left = curX;
 }
 
 // ── Scrubber interaction ───────────────────────────────────────────
@@ -330,11 +353,83 @@ function drawMini() {
   ctx.globalAlpha = 1;
 }
 
+// ── Novelty curve ──────────────────────────────────────────────────
+function drawNovelty() {
+  if (!noveltyWindows.length) return;
+
+  const dpr   = window.devicePixelRatio || 1;
+  const W     = nvWrap.offsetWidth || 800;
+  const H     = 72;
+  const PAD_L = TL_LABEL_W;  // align with the detection timeline
+  const PAD_B = 18;           // bottom margin for time axis
+  const plotW = W - PAD_L;
+  const plotH = H - PAD_B - 6;
+  const dur   = state.duration;
+
+  nvCanvas.width        = W * dpr;
+  nvCanvas.height       = H * dpr;
+  nvCanvas.style.width  = W + "px";
+  nvCanvas.style.height = H + "px";
+
+  const ctx = nvCanvas.getContext("2d");
+  ctx.scale(dpr, dpr);
+
+  ctx.fillStyle = "#0c1a2e";
+  ctx.fillRect(0, 0, W, H);
+
+  const maxN = Math.max(...noveltyWindows.map(w => w.novelty), 0.01);
+
+  // Filled area under the curve
+  ctx.beginPath();
+  noveltyWindows.forEach((w, i) => {
+    const x = PAD_L + (w.t / dur) * plotW;
+    const y = 6 + plotH * (1 - w.novelty / maxN);
+    if (i === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  });
+  // close path along bottom
+  const lastX = PAD_L + (noveltyWindows.at(-1).t / dur) * plotW;
+  ctx.lineTo(lastX, 6 + plotH);
+  ctx.lineTo(PAD_L, 6 + plotH);
+  ctx.closePath();
+  ctx.fillStyle = "rgba(0,200,248,0.10)";
+  ctx.fill();
+
+  // Curve line
+  ctx.beginPath();
+  noveltyWindows.forEach((w, i) => {
+    const x = PAD_L + (w.t / dur) * plotW;
+    const y = 6 + plotH * (1 - w.novelty / maxN);
+    if (i === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  });
+  ctx.strokeStyle = "rgba(0,200,248,0.7)";
+  ctx.lineWidth   = 1.5;
+  ctx.stroke();
+
+  // Detection markers — colored ticks at the top
+  state.dets.forEach(d => {
+    const meta = spMeta(d.sp);
+    const x    = PAD_L + (d.t / dur) * plotW;
+    ctx.globalAlpha = 0.6 + d.c * 0.4;
+    ctx.fillStyle   = meta.color;
+    ctx.fillRect(x - 1, 6, 2, 8);
+  });
+  ctx.globalAlpha = 1;
+
+  // Y-axis label
+  ctx.fillStyle  = "rgba(100,170,220,0.35)";
+  ctx.font       = `9px 'Space Mono', monospace`;
+  ctx.textAlign  = "right";
+  ctx.fillText("novelty", PAD_L - 4, 12);
+  ctx.fillText("0", PAD_L - 4, 6 + plotH);
+}
+
 let resizeTimer;
 window.addEventListener("resize", () => {
   clearTimeout(resizeTimer);
   resizeTimer = setTimeout(() => {
-    if (state.dets.length) { drawTimeline(); drawMini(); }
+    if (state.dets.length) { drawTimeline(); drawMini(); drawNovelty(); }
   }, 120);
 });
 
@@ -374,6 +469,35 @@ function setupTimelineInteraction() {
   tlWrap.addEventListener("mouseleave", () => tlTooltip.classList.remove("visible"));
 
   tlWrap.addEventListener("click", e => seekTo(xToTime(e.clientX)));
+
+  // Novelty curve hover + click
+  nvWrap.addEventListener("mousemove", e => {
+    if (!noveltyWindows.length) return;
+    const rect  = nvWrap.getBoundingClientRect();
+    const plotW = rect.width - TL_LABEL_W;
+    const px    = e.clientX - rect.left - TL_LABEL_W;
+    const t     = Math.max(0, Math.min(state.duration, (px / plotW) * state.duration));
+    // Find the closest window
+    const w = noveltyWindows.reduce((best, cur) =>
+      Math.abs(cur.t - t) < Math.abs(best.t - t) ? cur : best
+    );
+    const tipW = 170;
+    let left = e.clientX - rect.left - tipW / 2;
+    left = Math.max(4, Math.min(rect.width - tipW - 4, left));
+    nvTooltip.innerHTML = `
+      <div class="tl-tooltip-sp" style="color:var(--accent)">novelty</div>
+      <div class="tl-tooltip-detail">${fmtTime(w.t)} · ${w.novelty.toFixed(3)}</div>`;
+    nvTooltip.style.left = left + "px";
+    nvTooltip.style.top  = "6px";
+    nvTooltip.classList.add("visible");
+  });
+  nvWrap.addEventListener("mouseleave", () => nvTooltip.classList.remove("visible"));
+  nvWrap.addEventListener("click", e => {
+    const rect  = nvWrap.getBoundingClientRect();
+    const plotW = rect.width - TL_LABEL_W;
+    const px    = e.clientX - rect.left - TL_LABEL_W;
+    seekTo(Math.max(0, Math.min(state.duration, (px / plotW) * state.duration)));
+  });
 }
 
 // ── Active detection cards ─────────────────────────────────────────
