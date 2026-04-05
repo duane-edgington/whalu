@@ -203,73 +203,69 @@ class TestListFiles:
 # ---------------------------------------------------------------------------
 
 
-def _make_flac_blob(tmp_path, audio: np.ndarray, sr: int) -> MagicMock:
-    """Write a real FLAC tempfile and make a blob that downloads it."""
-    import soundfile as sf
-
-    flac_path = str(tmp_path / "test.flac")
-    sf.write(flac_path, audio, sr, format="FLAC")
-
-    blob = MagicMock()
-    blob.size = os.path.getsize(flac_path)
-
-    def _download(filename):
-        import shutil
-        shutil.copy(flac_path, filename)
-
-    blob.download_to_filename.side_effect = _download
-    return blob
-
-
 class TestDownloadAudio:
-    @patch("whalu.data.noaa._gcs")
-    def test_returns_float32_array(self, mock_gcs, tmp_path):
-        sr = 5000
-        audio = np.zeros(sr * 4, dtype=np.float32)  # 4 s silence
-        blob = _make_flac_blob(tmp_path, audio, sr)
+    """download_audio: GCS blob download and librosa.load are both mocked.
+
+    This avoids importing audioread (which emits DeprecationWarnings for
+    stdlib modules removed in Python 3.13) and keeps tests fast and pure.
+    """
+
+    def _make_mocks(self, audio: np.ndarray, sr: int):
+        """Return (mock_gcs_patcher, mock_librosa_patcher) context managers."""
+        blob = MagicMock()
+        blob.size = 512
+        blob.download_to_filename = MagicMock()
 
         mock_client = MagicMock()
-        mock_gcs.return_value = mock_client
         mock_client.bucket.return_value.blob.return_value = blob
+
+        librosa_return = (audio, sr)
+        return mock_client, librosa_return
+
+    @patch("whalu.data.noaa.librosa.load")
+    @patch("whalu.data.noaa._gcs")
+    def test_returns_float32_array(self, mock_gcs, mock_load):
+        sr = 5000
+        audio = np.zeros(sr * 4, dtype=np.float32)
+        mock_client, lr = self._make_mocks(audio, sr)
+        mock_gcs.return_value = mock_client
+        mock_load.return_value = lr
 
         result, dur = download_audio("nrs/audio/01/dep/audio/file.flac", target_sr=sr)
 
         assert result.dtype == np.float32
-        assert isinstance(dur, float)
+        assert dur == pytest.approx(4.0, abs=0.01)
 
+    @patch("whalu.data.noaa.librosa.load")
     @patch("whalu.data.noaa._gcs")
-    def test_limit_s_truncates_audio(self, mock_gcs, tmp_path):
+    def test_limit_s_truncates_audio(self, mock_gcs, mock_load):
         sr = 5000
-        audio = np.zeros(sr * 10, dtype=np.float32)  # 10 s
-        blob = _make_flac_blob(tmp_path, audio, sr)
-
-        mock_client = MagicMock()
+        audio = np.zeros(sr * 10, dtype=np.float32)
+        mock_client, lr = self._make_mocks(audio, sr)
         mock_gcs.return_value = mock_client
-        mock_client.bucket.return_value.blob.return_value = blob
+        mock_load.return_value = lr
 
         result, dur = download_audio(
             "nrs/audio/01/dep/audio/file.flac", target_sr=sr, limit_s=3.0
         )
 
-        assert dur == pytest.approx(3.0, abs=0.1)
-        assert len(result) <= sr * 3 + 1
+        assert dur == pytest.approx(3.0, abs=0.01)
+        assert len(result) == sr * 3
 
+    @patch("whalu.data.noaa.librosa.load")
     @patch("whalu.data.noaa._gcs")
-    def test_tempfile_cleaned_up(self, mock_gcs, tmp_path):
+    def test_tempfile_cleaned_up(self, mock_gcs, mock_load):
         sr = 5000
         audio = np.zeros(sr, dtype=np.float32)
-        blob = _make_flac_blob(tmp_path, audio, sr)
-
-        mock_client = MagicMock()
+        mock_client, lr = self._make_mocks(audio, sr)
         mock_gcs.return_value = mock_client
-        mock_client.bucket.return_value.blob.return_value = blob
+        mock_load.return_value = lr
 
-        tmp_files_before = set(os.listdir(tempfile.gettempdir()))
+        tmp_before = set(os.listdir(tempfile.gettempdir()))
         download_audio("blob.flac", target_sr=sr)
-        tmp_files_after = set(os.listdir(tempfile.gettempdir()))
+        tmp_after = set(os.listdir(tempfile.gettempdir()))
 
-        # No new .flac temp files should remain
-        new_files = tmp_files_after - tmp_files_before
+        new_files = tmp_after - tmp_before
         assert not any(f.endswith(".flac") for f in new_files)
 
 
