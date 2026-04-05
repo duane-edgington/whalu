@@ -162,6 +162,42 @@ class TestAddTimestamps:
         assert result["date"][1] == date(2026, 3, 2)
         assert result["hour"][1] == 12
 
+    def test_noaa_nrs_timestamp(self):
+        df = pl.DataFrame(
+            {
+                "source": ["noaa-nrs/NRS01_20141014_234015.flac"],
+                "time_start_s": [0.0],
+            }
+        )
+        result = add_timestamps(df)
+        assert result["date"][0] == date(2014, 10, 14)
+        assert result["hour"][0] == 23
+
+    def test_noaa_nrs_time_start_advances_hour(self):
+        df = pl.DataFrame(
+            {
+                "source": ["noaa-nrs/NRS09_20230601_000000.flac"],
+                "time_start_s": [3600.0],
+            }
+        )
+        result = add_timestamps(df)
+        assert result["hour"][0] == 1
+
+    def test_noaa_nrs_and_mbari_mixed(self):
+        df = pl.DataFrame(
+            {
+                "source": [
+                    "mbari/MARS-20260301T000000Z-16kHz",
+                    "noaa-nrs/NRS01_20141014_120000.flac",
+                ],
+                "time_start_s": [0.0, 0.0],
+            }
+        )
+        result = add_timestamps(df)
+        assert result["date"][0] == date(2026, 3, 1)
+        assert result["date"][1] == date(2014, 10, 14)
+        assert result["hour"][1] == 12
+
 
 class TestSpeciesSummary:
     """Tests for species_summary."""

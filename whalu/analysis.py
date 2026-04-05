@@ -9,7 +9,8 @@ import polars as pl
 def add_timestamps(df: pl.DataFrame) -> pl.DataFrame:
     """Parse absolute UTC timestamps from the source column and time_start_s.
 
-    Source format: ``mbari/MARS-20260301T000000Z-16kHz``
+    Handles MBARI format (``mbari/MARS-20260301T000000Z-16kHz``) and
+    NOAA NRS format (``noaa-nrs/NRS01_20141014_234015``).
 
     Parameters
     ----------
@@ -23,10 +24,13 @@ def add_timestamps(df: pl.DataFrame) -> pl.DataFrame:
         Input DataFrame with three additional columns: ``timestamp``
         (Datetime[ms, UTC]), ``hour`` (int, 0-23), and ``date`` (Date).
     """
-    # Extract YYYYMMDD and HHMMSS from source string
+    # Extract YYYYMMDD and HHMMSS from source string.
+    # Handles MBARI format (YYYYMMDDTHHmmSS) and NOAA NRS format (YYYYMMDD_HHmmSS).
     dates = []
     for source in df["source"].to_list():
         m = re.search(r"(\d{8})T(\d{6})", source)
+        if not m:
+            m = re.search(r"(\d{8})_(\d{6})", source)
         if m:
             base = datetime.strptime(m.group(1) + m.group(2), "%Y%m%d%H%M%S").replace(
                 tzinfo=timezone.utc
