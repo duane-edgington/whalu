@@ -9,6 +9,8 @@
 
 Marine bioacoustics detection pipeline. Slides a 5-second window over continuous hydrophone recordings, runs the [Google Perch multispecies whale model](https://github.com/google-research/perch-hoplite), and stores detections as Parquet files for analysis.
 
+**[Live demo](https://amrit110.github.io/whalu/)** — real MBARI hydrophone recording from Monterey Canyon with blue whale, fin whale, and humpback detections.
+
 ## Install
 
 ```bash
