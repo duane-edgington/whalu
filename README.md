@@ -7,7 +7,7 @@
 [![codecov](https://codecov.io/gh/amrit110/whalu/branch/main/graph/badge.svg)](https://codecov.io/gh/amrit110/whalu)
 [![License](https://img.shields.io/github/license/amrit110/whalu)](LICENSE.md)
 
-Marine bioacoustics detection pipeline. Slides a 5-second window over continuous hydrophone recordings, runs the Google Perch multispecies whale model, and stores detections as Parquet files for analysis.
+Marine bioacoustics detection pipeline. Slides a 5-second window over continuous hydrophone recordings, runs the [Google Perch multispecies whale model](https://github.com/google-research/perch-hoplite), and stores detections as Parquet files for analysis.
 
 ## Install
 
@@ -103,4 +103,4 @@ whalu info
 
 ## Detection model
 
-Google `multispecies_whale` via [perch-hoplite](https://github.com/google-research/perch). 12 classes: blue whale (Bm), fin whale (Bp), humpback (Mn), minke (Ba), Bryde's (Be), sei (Bs), right whale (Eg), orca (Oo), and call types (Upcall, Gunshot, Call, Echolocation, Whistle).
+Google [`multispecies_whale`](https://www.kaggle.com/models/google/multispecies-whale) via [perch-hoplite](https://github.com/google-research/perch-hoplite). 12 classes: blue whale (Bm), fin whale (Bp), humpback (Mn), minke (Ba), Bryde's (Be), sei (Bs), right whale (Eg), orca (Oo), and call types (Upcall, Gunshot, Call, Echolocation, Whistle).
