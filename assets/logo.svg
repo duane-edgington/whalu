@@ -147,38 +147,36 @@
   </circle>
 
   <!-- ── Whale fluke ───────────────────────────────────────────────────────
-       The detected animal breaks the surface. Baseline y=90 = ocean surface.
-       Two lobes sweep upward from the waterline, notch between them.
-       Left base (268,90) → left tip (265,64) → notch (283,76) → right tip (301,64) → right base (298,90)
+       Baseline y=90 = ocean surface. Two lobes sweep upward, notch between.
+       Left base (263,90) → left tip (259,55) → notch (283,70) → right tip (307,55) → right base (303,90)
   ────────────────────────────────────────────────────────────────────────── -->
 
-  <!-- Fluke ghost (faint echo) -->
-  <path d="M268,90
-           C267,82 264,74 264,67
-           C263,61 270,59 275,63
-           C280,67 282,74 283,76
-           C284,74 286,67 291,63
-           C296,59 303,61 302,67
-           C302,74 299,82 298,90 Z"
-        fill="url(#waveg)" opacity="0.12"/>
+  <!-- Fluke ghost (faint halo behind) -->
+  <path d="M263,90
+           C262,80 259,70 258,62
+           C257,54 265,51 271,55
+           C278,59 281,67 283,70
+           C285,67 288,59 295,55
+           C301,51 309,54 308,62
+           C307,70 304,80 303,90 Z"
+        fill="#22D3EE" opacity="0.08"/>
 
-  <!-- Fluke — main silhouette with glow -->
-  <path d="M268,90
-           C267,82 264,74 264,67
-           C263,61 270,59 275,63
-           C280,67 282,74 283,76
-           C284,74 286,67 291,63
-           C296,59 303,61 302,67
-           C302,74 299,82 298,90 Z"
-        fill="url(#waveg)" filter="url(#flukegl)" opacity="0.82">
-    <animate attributeName="opacity" values="0.65;0.92;0.65" dur="2.2s" repeatCount="indefinite"/>
+  <!-- Fluke — solid silhouette, bright cyan, strong glow -->
+  <path d="M263,90
+           C262,80 259,70 258,62
+           C257,54 265,51 271,55
+           C278,59 281,67 283,70
+           C285,67 288,59 295,55
+           C301,51 309,54 308,62
+           C307,70 304,80 303,90 Z"
+        fill="#22D3EE" filter="url(#flukegl)">
+    <animate attributeName="opacity" values="0.70;1.0;0.70" dur="2.2s" repeatCount="indefinite"/>
   </path>
 
-  <!-- Waterline ripple — small wave where the fluke exits the surface -->
-  <path d="M260,90 C264,87 270,93 276,90 C280,87 286,93 292,90 C296,87 302,93 306,90"
-        stroke="#67E8F9" stroke-width="1.2" fill="none"
-        stroke-linecap="round" opacity="0.4">
-    <animate attributeName="opacity" values="0.25;0.55;0.25" dur="2.2s" repeatCount="indefinite"/>
+  <!-- Waterline ripple where fluke breaks the surface -->
+  <path d="M255,91 C260,88 267,94 274,91 C279,88 287,94 294,91 C299,88 306,94 311,91"
+        stroke="#67E8F9" stroke-width="1.4" fill="none" stroke-linecap="round">
+    <animate attributeName="opacity" values="0.3;0.6;0.3" dur="2.2s" repeatCount="indefinite"/>
   </path>
 
   <!-- ── Tracer dot — scans the waveform like a live hydrophone monitor ── -->
