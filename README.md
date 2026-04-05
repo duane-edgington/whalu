@@ -98,6 +98,3 @@ whalu info
 
 Google `multispecies_whale` via [perch-hoplite](https://github.com/google-research/perch). 12 classes: blue whale (Bm), fin whale (Bp), humpback (Mn), minke (Ba), Bryde's (Be), sei (Bs), right whale (Eg), orca (Oo), and call types (Upcall, Gunshot, Call, Echolocation, Whistle).
 
-## Built for
-
-[Kaggle Gemma 4 Good Hackathon](https://www.kaggle.com/competitions/gemma-4-good-hackathon) - ocean health track.
