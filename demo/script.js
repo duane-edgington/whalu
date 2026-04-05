@@ -113,7 +113,12 @@ async function loadAudio() {
           updatePosition();
           updateActiveCards();
         });
-        audioEl.addEventListener("ended", () => setPlaying(false));
+        audioEl.addEventListener("ended", () => {
+          setPlaying(false);
+          state.currentTime = state.duration;
+          updatePosition();
+          updateActiveCards();
+        });
         state.audioReady = true;
         break;
       }
