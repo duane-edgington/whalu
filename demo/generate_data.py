@@ -100,7 +100,7 @@ def main() -> None:
         payload["audioDuration"] = args.audio_duration
 
     out = output_dir / "detections.json"
-    out.write_text(json.dumps(payload, separators=(",", ":")))
+    out.write_text(json.dumps(payload, separators=(",", ":")) + "\n")
     print(f"Wrote {len(detections)} detections to {out}")
     print(f"Duration: {duration:.0f}s  |  Source: {source}")
 
