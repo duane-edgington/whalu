@@ -47,7 +47,6 @@ const iconPlay   = $("icon-play");
 const iconPause  = $("icon-pause");
 const timeCur    = $("time-cur");
 const timeTot    = $("time-tot");
-const nextBtn    = $("next-btn");
 const scrFill    = $("scrubber-fill");
 const scrCursor  = $("scrubber-cursor");
 const miniCanvas = $("mini-canvas");
@@ -70,7 +69,6 @@ const WIN_S      = 5.0;  // model detection window size in seconds
 // ── Init ───────────────────────────────────────────────────────────
 async function init() {
   playBtn.addEventListener("click", togglePlay);
-  nextBtn.addEventListener("click", jumpToNextDet);
 
   // Load detections
   let data;
@@ -196,12 +194,6 @@ function startSim() {
 
 function stopSim() {
   if (state.simInterval) { clearInterval(state.simInterval); state.simInterval = null; }
-}
-
-function jumpToNextDet() {
-  const next = state.dets.find(d => d.t > state.currentTime + 0.1);
-  if (!next) return;
-  seekTo(Math.max(0, next.t - 5));
 }
 
 function seekTo(t) {

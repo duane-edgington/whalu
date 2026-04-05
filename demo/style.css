@@ -316,22 +316,6 @@ code {
   transition: left 0.1s linear;
 }
 
-.next-btn {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  background: transparent;
-  color: var(--text-2);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  padding: 6px 12px;
-  font-family: var(--font-mono);
-  font-size: 11px;
-  cursor: pointer;
-  white-space: nowrap;
-  transition: border-color 0.2s, color 0.2s;
-}
-.next-btn:hover { border-color: var(--border-2); color: var(--text); }
 
 /* ================================================================
    TIMELINE
