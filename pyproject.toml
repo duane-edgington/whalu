@@ -1,0 +1,32 @@
+[project]
+name = "whalu"
+version = "0.1.0"
+description = "Marine bioacoustics detection pipeline using Perch v2 and Gemma 4"
+requires-python = ">=3.11"
+dependencies = [
+    "perch-hoplite[tf]==1.0.1",
+    "librosa==0.11.0",
+    "soundfile==0.13.1",
+    "boto3==1.42.83",
+    "polars==1.39.3",
+    "scipy==1.17.1",
+    "numpy==2.4.4",
+    "rich==13.9.4",
+]
+
+[project.scripts]
+whalu = "whalu.cli.scan:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["whalu"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.uv]
+dev-dependencies = [
+    "ipykernel>=6.0",
+    "jupyter>=1.0",
+    "pyright>=1.1",
+]

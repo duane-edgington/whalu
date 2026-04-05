@@ -1,0 +1,174 @@
+<svg width="800" height="180" viewBox="0 0 800 180" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <!--
+      Ocean palette:
+        cyan    #22D3EE  (primary · bioluminescent surface)
+        teal    #0891B2  (mid · deep water)
+        cobalt  #1D4ED8  (deep · abyss)
+        aqua    #67E8F9  (light · shimmer)
+    -->
+
+    <!--
+      Hydrophone waveform: ambient ocean noise flanking two whale call arches.
+      Baseline y=90, x: 15–290.
+        Noise      — small symmetrical bumps (±8 px)
+        Arch 1     — first call, peak y=42
+        Arch 2     — strongest call (primary detection), peak y=28
+        Arch 3     — echo/harmonic, peak y=52
+        Echo       — fading trace, peak y=70
+        Ripple     — residual noise
+        Baseline   — silent hydrophone
+    -->
+    <path id="wave"
+          d="M15,90 L48,90
+             C50,90 52,82 55,82 C58,82 62,90 64,90
+             C66,90 69,82 74,82 C79,82 82,90 84,90
+             L95,90
+             C98,90 104,42 110,42 C116,42 122,90 125,90
+             L130,90
+             C134,90 140,28 148,28 C156,28 161,90 165,90
+             L168,90
+             C170,90 174,52 180,52 C186,52 194,90 198,90
+             L205,90
+             C207,90 210,70 215,70 C220,70 224,90 228,90
+             L234,90
+             C236,90 239,83 243,83 C247,83 250,90 254,90
+             L290,90"/>
+
+    <!-- Ambient glow behind icon -->
+    <radialGradient id="glowbg" cx="155" cy="90" r="160" gradientUnits="userSpaceOnUse">
+      <stop offset="0%"   stop-color="#22D3EE" stop-opacity="0.07"/>
+      <stop offset="100%" stop-color="#22D3EE" stop-opacity="0"/>
+    </radialGradient>
+
+    <!-- Waveform trace gradient: cyan → teal → cobalt -->
+    <linearGradient id="waveg" x1="15" y1="0" x2="290" y2="0" gradientUnits="userSpaceOnUse">
+      <stop offset="0%"   stop-color="#22D3EE"/>
+      <stop offset="50%"  stop-color="#0891B2"/>
+      <stop offset="100%" stop-color="#1D4ED8"/>
+    </linearGradient>
+
+    <!-- Wordmark gradient -->
+    <linearGradient id="tg" x1="345" y1="0" x2="650" y2="0" gradientUnits="userSpaceOnUse">
+      <stop offset="0%"   stop-color="#22D3EE"/>
+      <stop offset="100%" stop-color="#1D4ED8"/>
+    </linearGradient>
+
+    <!-- Strong glow -->
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="3.5" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+
+    <!-- Soft glow for small nodes -->
+    <filter id="softglow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="1.8" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+
+    <!-- Wide glow for tracer dot -->
+    <filter id="tracerglow" x="-200%" y="-200%" width="500%" height="500%">
+      <feGaussianBlur stdDeviation="5" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=Inter:wght@500;800&amp;display=swap');
+    </style>
+  </defs>
+
+  <!-- Ambient glow -->
+  <rect width="800" height="180" rx="16" fill="url(#glowbg)"/>
+
+  <!-- Waveform trace — ghost echo layer -->
+  <path d="M15,90 L48,90
+           C50,90 52,82 55,82 C58,82 62,90 64,90
+           C66,90 69,82 74,82 C79,82 82,90 84,90
+           L95,90
+           C98,90 104,42 110,42 C116,42 122,90 125,90
+           L130,90
+           C134,90 140,28 148,28 C156,28 161,90 165,90
+           L168,90
+           C170,90 174,52 180,52 C186,52 194,90 198,90
+           L205,90
+           C207,90 210,70 215,70 C220,70 224,90 228,90
+           L234,90
+           C236,90 239,83 243,83 C247,83 250,90 254,90
+           L290,90"
+        stroke="url(#waveg)" stroke-width="1.2" fill="none"
+        stroke-linecap="round" stroke-linejoin="round" opacity="0.18"/>
+
+  <!-- Waveform trace — main glowing line -->
+  <path d="M15,90 L48,90
+           C50,90 52,82 55,82 C58,82 62,90 64,90
+           C66,90 69,82 74,82 C79,82 82,90 84,90
+           L95,90
+           C98,90 104,42 110,42 C116,42 122,90 125,90
+           L130,90
+           C134,90 140,28 148,28 C156,28 161,90 165,90
+           L168,90
+           C170,90 174,52 180,52 C186,52 194,90 198,90
+           L205,90
+           C207,90 210,70 215,70 C220,70 224,90 228,90
+           L234,90
+           C236,90 239,83 243,83 C247,83 250,90 254,90
+           L290,90"
+        stroke="url(#waveg)" stroke-width="2.5" fill="none"
+        stroke-linecap="round" stroke-linejoin="round"
+        filter="url(#glow)" opacity="0.88"/>
+
+  <!-- ── Detection nodes ──────────────────────────────────────────────── -->
+
+  <!-- Arch 1 peak (110, 42) — first call detected, cyan -->
+  <circle cx="110" cy="42" r="3.5" fill="#22D3EE" filter="url(#softglow)">
+    <animate attributeName="opacity" values="0.5;1;0.5" dur="2.8s" repeatCount="indefinite"/>
+  </circle>
+
+  <!-- Arch 2 peak (148, 28) — strongest signal, bright cyan, heartbeat pulse -->
+  <circle cx="148" cy="28" r="6" fill="#22D3EE" filter="url(#glow)">
+    <animate attributeName="r"       values="5.5;7.5;5.5" dur="1.4s" repeatCount="indefinite"/>
+    <animate attributeName="opacity" values="1;0.45;1"    dur="1.4s" repeatCount="indefinite"/>
+  </circle>
+
+  <!-- Arch 3 peak (180, 52) — echo/harmonic, teal -->
+  <circle cx="180" cy="52" r="4.5" fill="#0891B2" filter="url(#softglow)">
+    <animate attributeName="opacity" values="0.55;1;0.55" dur="2.2s" repeatCount="indefinite"/>
+  </circle>
+
+  <!-- Echo peak (215, 70) — faint trace, deep teal -->
+  <circle cx="215" cy="70" r="3" fill="#0891B2" filter="url(#softglow)" opacity="0.7">
+    <animate attributeName="opacity" values="0.4;0.8;0.4" dur="2.8s" begin="0.4s" repeatCount="indefinite"/>
+  </circle>
+
+  <!-- Sonar detection ring (290, 90) — pulse at detection point, aqua -->
+  <circle cx="290" cy="90" r="9" fill="none" stroke="#67E8F9" stroke-width="1.5">
+    <animate attributeName="r"       values="9;18;9"      dur="2.2s" repeatCount="indefinite"/>
+    <animate attributeName="opacity" values="0.65;0;0.65" dur="2.2s" repeatCount="indefinite"/>
+  </circle>
+  <circle cx="290" cy="90" r="4" fill="#67E8F9" filter="url(#glow)">
+    <animate attributeName="opacity" values="1;0.35;1" dur="2.2s" repeatCount="indefinite"/>
+  </circle>
+
+  <!-- ── Tracer dot — scans the waveform like a live hydrophone monitor ── -->
+  <circle r="4.5" fill="#67E8F9" filter="url(#tracerglow)">
+    <animateMotion dur="4s" repeatCount="indefinite" rotate="none">
+      <mpath href="#wave"/>
+    </animateMotion>
+    <animate attributeName="opacity"
+             values="0;0.9;0.9;0.9;0"
+             keyTimes="0;0.06;0.5;0.88;1"
+             dur="4s" repeatCount="indefinite"/>
+  </circle>
+
+  <!-- ── Wordmark ───────────────────────────────────────────────────── -->
+  <text x="345" y="118"
+        font-family="'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif"
+        font-size="84" font-weight="800" letter-spacing="-4"
+        fill="url(#tg)">whalu</text>
+
+  <!-- Tagline -->
+  <text x="347" y="148"
+        font-family="'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif"
+        font-size="13" font-weight="500" letter-spacing="3.5"
+        fill="#3d6878">marine bioacoustics</text>
+</svg>
