@@ -147,39 +147,42 @@
   </circle>
 
   <!-- ── Whale fluke ───────────────────────────────────────────────────────
-       Perimeter traced clockwise. y=90 = ocean surface (tail stock).
-       Outer edge sweeps wide; tips are pointed; inner edges concave to a
-       deep central notch (y=72, 43% of total height from tips at y=48).
+       Based on humpback fluke anatomy:
+         Trailing edge (top, small y): nearly flat, full span, V notch at center
+         Leading edge (bottom, large y): concave, sweeps from tail stock to tips
+         Tips: rounded corners where edges meet
+         Proportions: ~84px wide × 38px tall (2.2:1, realistic)
+         Notch: (283,66) — 14px below trailing edge, 37% of total height
 
-       left base(268,90) → outer-left sweep → left tip(~246,52) →
-       inner-left concave → notch(283,72) → inner-right concave →
-       right tip(~320,52) → outer-right sweep → right base(298,90) → Z
+       Path traced CCW: left base → leading edge → left tip →
+       trailing edge → notch → trailing edge → right tip →
+       leading edge → right base → Z (tail stock)
   ────────────────────────────────────────────────────────────────────────── -->
 
   <!-- Fluke ghost (soft halo) -->
   <path d="M268,90
-           C264,80 250,68 248,58
-           C246,52 249,47 256,48
-           C264,50 278,64 283,72
-           C288,64 302,50 310,48
-           C317,47 320,52 318,58
-           C316,68 302,80 298,90 Z"
+           C263,80 245,68 243,56
+           C241,55 241,52 245,52
+           C260,52 275,56 283,66
+           C291,56 306,52 321,52
+           C325,52 325,55 323,56
+           C321,68 303,80 298,90 Z"
         fill="#22D3EE" opacity="0.1"/>
 
   <!-- Fluke — silhouette, bright cyan, glowing -->
   <path d="M268,90
-           C264,80 250,68 248,58
-           C246,52 249,47 256,48
-           C264,50 278,64 283,72
-           C288,64 302,50 310,48
-           C317,47 320,52 318,58
-           C316,68 302,80 298,90 Z"
+           C263,80 245,68 243,56
+           C241,55 241,52 245,52
+           C260,52 275,56 283,66
+           C291,56 306,52 321,52
+           C325,52 325,55 323,56
+           C321,68 303,80 298,90 Z"
         fill="#22D3EE" filter="url(#flukegl)">
     <animate attributeName="opacity" values="0.72;1.0;0.72" dur="2.2s" repeatCount="indefinite"/>
   </path>
 
-  <!-- Waterline ripple where fluke exits the surface -->
-  <path d="M258,91 C263,88 270,94 276,91 C281,88 289,94 295,91 C300,88 307,94 311,91"
+  <!-- Waterline ripple at the tail stock base -->
+  <path d="M260,91 C265,88 272,94 279,91 C284,88 292,94 298,91 C303,88 311,94 316,91"
         stroke="#67E8F9" stroke-width="1.4" fill="none" stroke-linecap="round">
     <animate attributeName="opacity" values="0.25;0.55;0.25" dur="2.2s" repeatCount="indefinite"/>
   </path>
