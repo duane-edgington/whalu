@@ -1,8 +1,6 @@
-# whalu
-
-Marine bioacoustics detection pipeline. Slides a 5-second window over continuous hydrophone recordings, runs the Google [Perch multispecies whale model](https://huggingface.co/google/multispecies-whale), and stores detections as Parquet files for analysis.
-
 ![whalu logo](assets/logo.svg)
+
+Marine bioacoustics detection pipeline. Slides a 5-second window over continuous hydrophone recordings, runs the Google Perch multispecies whale model, and stores detections as Parquet files for analysis.
 
 ## Supported data sources
 
@@ -43,14 +41,14 @@ uv run whalu info mbari
 
 ## How it works
 
-- Streams 4 GB daily files via S3 range requests in 1-hour chunks (~172 MB each) — bounded RAM
+- Streams 4 GB daily files via S3 range requests in 1-hour chunks (~172 MB each), bounded RAM
 - Applies sigmoid activation (correct for the multi-label whale model, not softmax)
 - Emits detections only where confidence >= 0.5
-- Stores one Parquet file per audio source — runs are resumable
+- Stores one Parquet file per audio source, runs are resumable
 
 ## Detection model
 
-Google [`multispecies_whale`](https://huggingface.co/google/multispecies-whale) via [perch-hoplite](https://github.com/google-research/perch). 12 classes: blue whale (Bm), fin whale (Bp), humpback (Mn), minke (Ba), Bryde's (Be), sei (Bs), right whale (Eg), orca (Oo), and call types (Upcall, Gunshot, Call, Echolocation, Whistle).
+Google `multispecies_whale` via [perch-hoplite](https://github.com/google-research/perch). 12 classes: blue whale (Bm), fin whale (Bp), humpback (Mn), minke (Ba), Bryde's (Be), sei (Bs), right whale (Eg), orca (Oo), and call types (Upcall, Gunshot, Call, Echolocation, Whistle).
 
 ## Built for
 
