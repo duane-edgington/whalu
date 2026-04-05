@@ -21,13 +21,17 @@ class TestGetWhaleModel:
 
     def test_calls_load_with_correct_name(self):
         mock_model = MagicMock()
-        with patch("whalu.models.loader.load_model_by_name", return_value=mock_model) as mock_load:
+        with patch(
+            "whalu.models.loader.load_model_by_name", return_value=mock_model
+        ) as mock_load:
             get_whale_model()
         mock_load.assert_called_once_with("multispecies_whale")
 
     def test_caches_model_on_second_call(self):
         mock_model = MagicMock()
-        with patch("whalu.models.loader.load_model_by_name", return_value=mock_model) as mock_load:
+        with patch(
+            "whalu.models.loader.load_model_by_name", return_value=mock_model
+        ) as mock_load:
             result1 = get_whale_model()
             result2 = get_whale_model()
         assert mock_load.call_count == 1

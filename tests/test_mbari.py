@@ -34,10 +34,12 @@ class TestFindDataChunk:
     def test_finds_data_chunk_immediately_after_fmt(self):
         fmt_data = b"\x01\x00\x01\x00\x80\x3e\x00\x00\x80\x3e\x00\x00\x03\x00\x18\x00"
         audio_data = b"\x00" * 64
-        header = _make_wav_header([
-            (b"fmt ", fmt_data),
-            (b"data", audio_data),
-        ])
+        header = _make_wav_header(
+            [
+                (b"fmt ", fmt_data),
+                (b"data", audio_data),
+            ]
+        )
         offset, size = _find_data_chunk(header)
         assert size == 64
 
@@ -45,21 +47,25 @@ class TestFindDataChunk:
         fmt_data = b"\x01\x00" + b"\x00" * 14
         list_data = b"INFO" + b"\x00" * 8
         audio_data = b"\x00" * 32
-        header = _make_wav_header([
-            (b"fmt ", fmt_data),
-            (b"LIST", list_data),
-            (b"data", audio_data),
-        ])
+        header = _make_wav_header(
+            [
+                (b"fmt ", fmt_data),
+                (b"LIST", list_data),
+                (b"data", audio_data),
+            ]
+        )
         offset, size = _find_data_chunk(header)
         assert size == 32
 
     def test_returns_correct_offset(self):
         fmt_data = b"\x00" * 16
         audio_data = b"\x00" * 16
-        header = _make_wav_header([
-            (b"fmt ", fmt_data),
-            (b"data", audio_data),
-        ])
+        header = _make_wav_header(
+            [
+                (b"fmt ", fmt_data),
+                (b"data", audio_data),
+            ]
+        )
         offset, _ = _find_data_chunk(header)
         # Verify the chunk ID at that offset really is 'data'
         assert header[offset : offset + 4] == b"data"
@@ -72,10 +78,12 @@ class TestFindDataChunk:
 
     def test_data_chunk_size_matches_audio(self):
         audio = b"\xab\xcd\xef" * 100
-        header = _make_wav_header([
-            (b"fmt ", b"\x00" * 16),
-            (b"data", audio),
-        ])
+        header = _make_wav_header(
+            [
+                (b"fmt ", b"\x00" * 16),
+                (b"data", audio),
+            ]
+        )
         _, size = _find_data_chunk(header)
         assert size == len(audio)
 
@@ -83,12 +91,16 @@ class TestFindDataChunk:
 class TestBuildWav:
     """Tests for _build_wav."""
 
-    def _header_and_offset(self, audio_placeholder: bytes = b"\x00" * 8) -> tuple[bytes, int]:
+    def _header_and_offset(
+        self, audio_placeholder: bytes = b"\x00" * 8
+    ) -> tuple[bytes, int]:
         """Return (header_bytes, data_offset) for a simple WAV."""
-        header = _make_wav_header([
-            (b"fmt ", b"\x00" * 16),
-            (b"data", audio_placeholder),
-        ])
+        header = _make_wav_header(
+            [
+                (b"fmt ", b"\x00" * 16),
+                (b"data", audio_placeholder),
+            ]
+        )
         offset, _ = _find_data_chunk(header)
         return header, offset
 
