@@ -124,5 +124,13 @@ def run_detections(
             "species": species_list,
             "confidence": confidences,
             "rank": ranks,
-        }
+        },
+        schema={
+            "source": pl.String,
+            "time_start_s": pl.Float64,
+            "time_end_s": pl.Float64,
+            "species": pl.String,
+            "confidence": pl.Float64,
+            "rank": pl.Int32,
+        },
     )
