@@ -103,6 +103,7 @@ const scrFill    = $("scrubber-fill");
 const scrCursor  = $("scrubber-cursor");
 const miniCanvas = $("mini-canvas");
 const tlCanvas   = $("tl-canvas");
+const tlCursor   = $("tl-cursor");
 const tlWrap     = $("tl-wrap");
 const tlTooltip  = $("tl-tooltip");
 const legend     = $("legend");
@@ -163,11 +164,14 @@ function onAudioFile(e) {
 }
 
 function startDemo() {
-  const data = generateSampleData();
-  loadData(data);
   $("load-panel").classList.add("hidden");
   $("vis").classList.remove("hidden");
   $("m-mode").textContent = "simulated playback";
+  // defer so the vis is laid out (offsetWidth correct) before drawing
+  requestAnimationFrame(() => {
+    const data = generateSampleData();
+    loadData(data);
+  });
 }
 
 function loadData(data) {
@@ -239,10 +243,10 @@ function seekTo(t) {
 function updatePosition() {
   const pct = state.duration ? state.currentTime / state.duration : 0;
   timeCur.textContent = fmtTime(state.currentTime);
-  scrFill.style.width = `${pct * 100}%`;
+  scrFill.style.left   = "0";
+  scrFill.style.width  = `${pct * 100}%`;
   scrCursor.style.left = `${pct * 100}%`;
-  drawCursor(tlCanvas, pct);
-  drawCursor(miniCanvas, pct, true);
+  tlCursor.style.left  = `${pct * 100}%`;
 }
 
 // ── Scrubber interaction ───────────────────────────────────────────
@@ -319,40 +323,8 @@ function drawTimeline() {
   });
 
   ctx.globalAlpha = 1;
-
-  // draw cursor at current position
-  drawCursor(canvas, state.currentTime / state.duration);
 }
 
-// cursor overlay — redraws just the cursor line on top
-let cursorFrameId = null;
-function drawCursor(canvas, pct, isMini = false) {
-  const dpr = window.devicePixelRatio || 1;
-  const W = canvas.width / dpr;
-  const H = canvas.height / dpr;
-  const ctx = canvas.getContext("2d");
-
-  // clear only the previous cursor column by redrawing just that strip
-  // (full redraw is too expensive at 4fps — we redraw the full canvas only on resize)
-  // Instead: overdraw timeline, then paint cursor. For mini canvas just paint cursor.
-  if (!isMini) {
-    // redraw full timeline each frame (canvas is small enough)
-    drawTimeline();
-    return; // drawTimeline calls drawCursor internally via updatePosition
-  }
-
-  // mini canvas cursor
-  const x = pct * W;
-  ctx.clearRect(x - 2, 0, 4, H);
-  ctx.strokeStyle = "rgba(0,200,248,0.9)";
-  ctx.lineWidth = 2;
-  ctx.shadowColor = "#00c8f8";
-  ctx.shadowBlur = 6;
-  ctx.beginPath();
-  ctx.moveTo(x, 0); ctx.lineTo(x, H);
-  ctx.stroke();
-  ctx.shadowBlur = 0;
-}
 
 function drawMini() {
   const canvas = miniCanvas;
@@ -380,11 +352,13 @@ function drawMini() {
   ctx.globalAlpha = 1;
 }
 
-// Redraw timeline (debounced) on resize
+// Redraw canvases (debounced) on resize
 let resizeTimer;
 window.addEventListener("resize", () => {
   clearTimeout(resizeTimer);
-  resizeTimer = setTimeout(() => { drawTimeline(); drawMini(); }, 100);
+  resizeTimer = setTimeout(() => {
+    if (state.dets.length) { drawTimeline(); drawMini(); }
+  }, 120);
 });
 
 // ── Timeline hover & click ─────────────────────────────────────────
