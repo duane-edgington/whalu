@@ -147,41 +147,39 @@
   </circle>
 
   <!-- ── Whale fluke ───────────────────────────────────────────────────────
-       Baseline y=90 = ocean surface. Traced as a single perimeter path:
-       left base → up outer left edge → around pointed left tip →
-       down inner left to notch (deep V) → up inner right →
-       around pointed right tip → down outer right edge → right base → Z.
-       Key points: left tip (258,49), notch (283,76), right tip (308,49).
+       Perimeter traced clockwise. y=90 = ocean surface (tail stock).
+       Outer edge sweeps wide; tips are pointed; inner edges concave to a
+       deep central notch (y=72, 43% of total height from tips at y=48).
+
+       left base(268,90) → outer-left sweep → left tip(~246,52) →
+       inner-left concave → notch(283,72) → inner-right concave →
+       right tip(~320,52) → outer-right sweep → right base(298,90) → Z
   ────────────────────────────────────────────────────────────────────────── -->
 
-  <!-- Fluke ghost (soft halo behind) -->
-  <path d="M266,90
-           C262,87 256,77 253,63
-           C251,54 255,48 261,51
-           C267,54 274,66 279,72
-           C281,75 282,76 283,76
-           C284,76 285,75 287,72
-           C292,66 299,54 305,51
-           C311,48 315,54 313,63
-           C310,77 304,87 300,90 Z"
+  <!-- Fluke ghost (soft halo) -->
+  <path d="M268,90
+           C264,80 250,68 248,58
+           C246,52 249,47 256,48
+           C264,50 278,64 283,72
+           C288,64 302,50 310,48
+           C317,47 320,52 318,58
+           C316,68 302,80 298,90 Z"
         fill="#22D3EE" opacity="0.1"/>
 
-  <!-- Fluke — solid silhouette with glow -->
-  <path d="M266,90
-           C262,87 256,77 253,63
-           C251,54 255,48 261,51
-           C267,54 274,66 279,72
-           C281,75 282,76 283,76
-           C284,76 285,75 287,72
-           C292,66 299,54 305,51
-           C311,48 315,54 313,63
-           C310,77 304,87 300,90 Z"
+  <!-- Fluke — silhouette, bright cyan, glowing -->
+  <path d="M268,90
+           C264,80 250,68 248,58
+           C246,52 249,47 256,48
+           C264,50 278,64 283,72
+           C288,64 302,50 310,48
+           C317,47 320,52 318,58
+           C316,68 302,80 298,90 Z"
         fill="#22D3EE" filter="url(#flukegl)">
     <animate attributeName="opacity" values="0.72;1.0;0.72" dur="2.2s" repeatCount="indefinite"/>
   </path>
 
-  <!-- Waterline ripple at the base of the fluke -->
-  <path d="M258,91 C263,88 269,94 275,91 C280,88 287,94 293,91 C298,88 305,94 309,91"
+  <!-- Waterline ripple where fluke exits the surface -->
+  <path d="M258,91 C263,88 270,94 276,91 C281,88 289,94 295,91 C300,88 307,94 311,91"
         stroke="#67E8F9" stroke-width="1.4" fill="none" stroke-linecap="round">
     <animate attributeName="opacity" values="0.25;0.55;0.25" dur="2.2s" repeatCount="indefinite"/>
   </path>
