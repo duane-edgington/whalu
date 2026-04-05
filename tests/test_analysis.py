@@ -1,11 +1,16 @@
 """Unit tests for whalu.analysis."""
 
-from datetime import date, timezone
+from datetime import date
 
 import polars as pl
 import pytest
 
-from whalu.analysis import add_timestamps, daily_counts, hourly_activity, species_summary
+from whalu.analysis import (
+    add_timestamps,
+    daily_counts,
+    hourly_activity,
+    species_summary,
+)
 
 
 def _make_detections(
@@ -88,7 +93,9 @@ class TestAddTimestamps:
         )
         result = add_timestamps(df)
         ts = result["timestamp"][0]
-        assert ts.tzinfo is not None or result["timestamp"].dtype == pl.Datetime("ms", "UTC")
+        assert ts.tzinfo is not None or result["timestamp"].dtype == pl.Datetime(
+            "ms", "UTC"
+        )
 
     def test_hour_zero_at_midnight(self):
         df = pl.DataFrame(
@@ -198,7 +205,14 @@ class TestSpeciesSummary:
             hours=[0],
         )
         result = species_summary(df)
-        for col in ["species", "windows", "minutes", "mean_conf", "max_conf", "pct_of_time"]:
+        for col in [
+            "species",
+            "windows",
+            "minutes",
+            "mean_conf",
+            "max_conf",
+            "pct_of_time",
+        ]:
             assert col in result.columns
 
     def test_minutes_computed_from_windows(self):
@@ -374,7 +388,6 @@ class TestDailyCounts:
 
     def test_sorted_by_date_and_species(self):
         d1 = date(2026, 3, 1)
-        d2 = date(2026, 3, 2)
         df = _make_detections(
             species=["Bp", "Bm"],
             confidences=[0.9, 0.9],

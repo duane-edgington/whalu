@@ -48,7 +48,9 @@ class TestRegistry:
 
     def test_call_types_have_empty_scientific_names(self):
         for code in CALL_CODES:
-            assert REGISTRY[code].scientific == "", f"{code} should have no scientific name"
+            assert REGISTRY[code].scientific == "", (
+                f"{code} should have no scientific name"
+            )
 
     def test_code_matches_key(self):
         for key, species in REGISTRY.items():

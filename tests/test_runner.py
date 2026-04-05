@@ -1,13 +1,11 @@
 """Unit tests for whalu.detection.runner."""
 
-from dataclasses import dataclass, field
-from typing import Any
-from unittest.mock import MagicMock
+from dataclasses import dataclass
 
 import numpy as np
 import pytest
 
-from whalu.detection.runner import HOP_SIZE_S, THRESHOLD, run_detections
+from whalu.detection.runner import HOP_SIZE_S, run_detections
 
 
 @dataclass
@@ -76,7 +74,14 @@ class TestRunDetectionsSchema:
     def test_expected_columns(self):
         model = _MockModel(CLASSES)
         result = run_detections(model, AUDIO_10S, "test_source")
-        for col in ["source", "time_start_s", "time_end_s", "species", "confidence", "rank"]:
+        for col in [
+            "source",
+            "time_start_s",
+            "time_end_s",
+            "species",
+            "confidence",
+            "rank",
+        ]:
             assert col in result.columns
 
     def test_source_name_in_output(self):

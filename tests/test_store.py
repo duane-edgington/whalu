@@ -8,7 +8,9 @@ import pytest
 from whalu.db.store import DetectionStore
 
 
-def _sample_df(n: int = 3, species: str = "Bm", rank: int = 1, confidence: float = 0.9) -> pl.DataFrame:
+def _sample_df(
+    n: int = 3, species: str = "Bm", rank: int = 1, confidence: float = 0.9
+) -> pl.DataFrame:
     """Create a minimal detection DataFrame.
 
     Parameters
