@@ -1,6 +1,6 @@
 /* ================================================================
    whalu demo — script.js
-   Loads detections.json (real) or generates sample data.
+   Auto-loads data/detections.json + data/audio.mp3.
    Syncs an HTML5 audio player with a detection timeline canvas.
    ================================================================ */
 
@@ -25,70 +25,20 @@ function spMeta(code) {
   return SP[code] || { name: code, sci: "", emoji: "·", color: "#6b7280" };
 }
 
-// ── Seeded PRNG (Mulberry32) ───────────────────────────────────────
-function mulberry32(seed) {
-  return () => {
-    seed |= 0; seed = (seed + 0x6D2B79F5) | 0;
-    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
-
-// ── Sample data generator ──────────────────────────────────────────
-function generateSampleData() {
-  const rand = mulberry32(42);
-  const dets = [];
-
-  function bout(sp, start, end, interval, lo, hi) {
-    let t = start;
-    while (t < end) {
-      const c = lo + rand() * (hi - lo);
-      dets.push({ t: Math.round(t * 10) / 10, sp, c: Math.round(c * 100) / 100 });
-      t += interval * (0.7 + rand() * 0.6);
-    }
-  }
-
-  // Fin whale — three calling bouts (20 Hz pulses)
-  bout("Bp", 0,    680,  7.2, 0.56, 0.91);
-  bout("Bp", 1480, 1920, 8.8, 0.54, 0.87);
-  bout("Bp", 2760, 3320, 7.8, 0.55, 0.90);
-
-  // Humpback — two singing bouts
-  bout("Mn", 420,  940,  5.4, 0.61, 0.95);
-  bout("Mn", 2180, 2700, 6.2, 0.59, 0.93);
-
-  // Blue whale — D-calls, sparse mid-recording
-  bout("Bm", 1020, 1560, 13.5, 0.52, 0.84);
-  // Occasional blue whale call at other times
-  [180, 340, 2900, 3150, 3380].forEach(t => {
-    dets.push({ t, sp: "Bm", c: +(0.52 + rand() * 0.20).toFixed(2) });
-  });
-
-  // Right whale upcalls (rare — exciting when they appear)
-  bout("Upcall", 520, 760, 22, 0.51, 0.74);
-  bout("Upcall", 2260, 2420, 26, 0.50, 0.70);
-
-  // Occasional orca pass
-  bout("Oo", 1700, 1820, 9, 0.58, 0.82);
-
-  dets.sort((a, b) => a.t - b.t);
-  return { dets, duration: 3600, source: "MARS-20260301T000000Z-16kHz (sample)", isSample: true };
-}
-
 // ── State ──────────────────────────────────────────────────────────
-let state = {
-  dets: [],
-  duration: 3600,
-  source: "",
-  isSample: false,
-  currentTime: 0,
-  playing: false,
-  simInterval: null,
-  audioReady: false,
+const state = {
+  dets:          [],
+  duration:      3600,  // full recording duration in seconds
+  source:        "",
+  currentTime:   0,     // position within the full recording (seconds)
+  playing:       false,
+  audioReady:    false,
+  audioOffset:   0,     // start of audio clip within the full recording
+  audioDuration: Infinity, // length of the audio clip
+  simInterval:   null,
 };
 
-const WINDOW = 10; // seconds either side of current time
+const WINDOW = 10; // seconds either side shown in active cards
 
 // ── DOM refs ───────────────────────────────────────────────────────
 const $ = id => document.getElementById(id);
@@ -110,95 +60,133 @@ const legend     = $("legend");
 const activeCards= $("active-cards");
 const emptyMsg   = $("empty-msg");
 const statsList  = $("stats-list");
+const audioHint  = $("audio-hint");
 
 // ── Init ───────────────────────────────────────────────────────────
 async function init() {
-  $("audio-input").addEventListener("change", onAudioFile);
-  $("demo-btn").addEventListener("click", startDemo);
   playBtn.addEventListener("click", togglePlay);
   nextBtn.addEventListener("click", jumpToNextDet);
 
-  // Try loading real detections.json (works when served over HTTP)
+  // Load detections
+  let data;
   try {
     const r = await fetch("data/detections.json");
-    if (r.ok) {
-      const json = await r.json();
-      const data = Array.isArray(json) ? { dets: json, duration: 3600, source: "detections.json", isSample: false } : json;
-      loadData(data);
-      $("load-panel").classList.add("hidden");
-      $("vis").classList.remove("hidden");
-    }
-  } catch (_) { /* no file — wait for user action */ }
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    const json = await r.json();
+    data = Array.isArray(json)
+      ? { dets: json, duration: 3600, source: "detections.json", isSample: false }
+      : json;
+  } catch (err) {
+    $("loading").innerHTML = `
+      <div class="loading-inner">
+        <div class="loading-wave">⚠️</div>
+        <p>Could not load detection data.<br>
+        Serve this directory over HTTP:<br>
+        <code>python -m http.server 8000</code></p>
+      </div>`;
+    return;
+  }
+
+  // Load audio
+  await loadAudio(data);
+
+  $("loading").classList.add("hidden");
+  $("vis").classList.remove("hidden");
+
+  requestAnimationFrame(() => loadData(data));
 }
 
-function onAudioFile(e) {
-  const file = e.target.files[0];
-  if (!file) return;
-  audioEl.src = URL.createObjectURL(file);
-  audioEl.load();
-  state.audioReady = true;
+async function loadAudio(data) {
+  state.audioOffset   = data.audioOffset   || 0;
+  state.audioDuration = data.audioDuration || Infinity;
 
-  audioEl.addEventListener("loadedmetadata", () => {
-    state.duration = audioEl.duration || 3600;
-    $("time-tot").textContent = fmtTime(state.duration);
-    if (!state.dets.length) {
-      const sample = generateSampleData();
-      sample.source = file.name;
-      loadData(sample);
-    }
-    $("m-mode").textContent = "live audio";
-    drawTimeline();
-    drawMini();
-  }, { once: true });
+  // Try audio.mp3 first, fall back to audio.wav
+  for (const name of ["audio.mp3", "audio.wav"]) {
+    try {
+      const r = await fetch(`data/${name}`, { method: "HEAD" });
+      if (r.ok) {
+        audioEl.src = `data/${name}`;
+        audioEl.load();
+        // Seek into full recording to the audio clip start
+        state.currentTime = state.audioOffset;
 
-  audioEl.addEventListener("timeupdate", () => {
-    state.currentTime = audioEl.currentTime;
-    updatePosition();
-    updateActiveCards();
-  });
+        audioEl.addEventListener("timeupdate", () => {
+          state.currentTime = state.audioOffset + audioEl.currentTime;
+          updatePosition();
+          updateActiveCards();
+        });
+        audioEl.addEventListener("ended", () => {
+          setPlaying(false);
+        });
 
-  audioEl.addEventListener("ended", () => setPlaying(false));
+        state.audioReady = true;
 
-  $("load-panel").classList.add("hidden");
-  $("vis").classList.remove("hidden");
-}
+        if (state.audioOffset > 0) {
+          const start = fmtTime(state.audioOffset);
+          const end   = fmtTime(state.audioOffset + state.audioDuration);
+          audioHint.textContent = `Audio clip: ${start} – ${end} of full recording`;
+          audioHint.classList.remove("hidden");
+        }
+        break;
+      }
+    } catch (_) { /* try next */ }
+  }
 
-function startDemo() {
-  $("load-panel").classList.add("hidden");
-  $("vis").classList.remove("hidden");
-  $("m-mode").textContent = "simulated playback";
-  // defer so the vis is laid out (offsetWidth correct) before drawing
-  requestAnimationFrame(() => {
-    const data = generateSampleData();
-    loadData(data);
-  });
+  if (!state.audioReady) {
+    $("m-mode").textContent = "detections only";
+  }
 }
 
 function loadData(data) {
   state.dets     = data.dets || [];
   state.duration = data.duration || 3600;
-  state.source   = data.source || "";
-  state.isSample = data.isSample || false;
+  state.source   = data.source  || "";
 
-  $("m-source").textContent = state.source;
+  // Human-readable source name (strip parquet file naming conventions)
+  const sourceLabel = state.source
+    .replace(/^mbari_\d{4}_\d{2}_/, "")
+    .replace(/_lim[\d.]+h$/, "");
+
+  $("m-source").textContent = sourceLabel;
   $("m-count").textContent  = `${state.dets.length} detections`;
   $("time-tot").textContent = fmtTime(state.duration);
+
+  if (state.audioReady) {
+    $("m-mode").textContent = state.audioDuration < Infinity
+      ? `${Math.round(state.audioDuration)}s clip`
+      : "full audio";
+  }
 
   buildLegend();
   drawTimeline();
   drawMini();
   buildStats();
   updateActiveCards();
+  updatePosition();
   setupScrubber();
+  setupTimelineInteraction();
 }
 
 // ── Playback ───────────────────────────────────────────────────────
 function togglePlay() {
   if (state.audioReady) {
-    if (audioEl.paused) { audioEl.play(); setPlaying(true); }
-    else                { audioEl.pause(); setPlaying(false); }
+    if (audioEl.paused) {
+      // If cursor is outside the audio clip range, seek to clip start
+      const inClip = state.currentTime >= state.audioOffset &&
+                     state.currentTime < state.audioOffset + state.audioDuration;
+      if (!inClip) {
+        state.currentTime = state.audioOffset;
+        audioEl.currentTime = 0;
+      } else {
+        audioEl.currentTime = state.currentTime - state.audioOffset;
+      }
+      audioEl.play();
+      setPlaying(true);
+    } else {
+      audioEl.pause();
+      setPlaying(false);
+    }
   } else {
-    // Simulated playback
     if (state.playing) { stopSim(); setPlaying(false); }
     else               { startSim(); setPlaying(true); }
   }
@@ -213,7 +201,7 @@ function setPlaying(yes) {
 
 function startSim() {
   if (state.simInterval) clearInterval(state.simInterval);
-  const tick = 250; // ms
+  const tick = 250;
   state.simInterval = setInterval(() => {
     state.currentTime = Math.min(state.currentTime + tick / 1000, state.duration);
     if (state.currentTime >= state.duration) { stopSim(); setPlaying(false); return; }
@@ -227,26 +215,33 @@ function stopSim() {
 }
 
 function jumpToNextDet() {
-  const t = state.currentTime;
-  const next = state.dets.find(d => d.t > t + 0.1);
+  const next = state.dets.find(d => d.t > state.currentTime + 0.1);
   if (!next) return;
   seekTo(Math.max(0, next.t - 5));
 }
 
 function seekTo(t) {
   state.currentTime = Math.max(0, Math.min(t, state.duration));
-  if (state.audioReady) audioEl.currentTime = state.currentTime;
+  if (state.audioReady) {
+    const inClip = state.currentTime >= state.audioOffset &&
+                   state.currentTime < state.audioOffset + state.audioDuration;
+    if (inClip) {
+      audioEl.currentTime = state.currentTime - state.audioOffset;
+    } else {
+      audioEl.pause();
+      setPlaying(false);
+    }
+  }
   updatePosition();
   updateActiveCards();
 }
 
 function updatePosition() {
   const pct = state.duration ? state.currentTime / state.duration : 0;
-  timeCur.textContent = fmtTime(state.currentTime);
-  scrFill.style.left   = "0";
-  scrFill.style.width  = `${pct * 100}%`;
-  scrCursor.style.left = `${pct * 100}%`;
-  tlCursor.style.left  = `${pct * 100}%`;
+  timeCur.textContent      = fmtTime(state.currentTime);
+  scrFill.style.width      = `${pct * 100}%`;
+  scrCursor.style.left     = `${pct * 100}%`;
+  tlCursor.style.left      = `${pct * 100}%`;
 }
 
 // ── Scrubber interaction ───────────────────────────────────────────
@@ -254,41 +249,49 @@ function setupScrubber() {
   const bg = $("scrubber-bg");
   function onScrub(e) {
     const rect = bg.getBoundingClientRect();
-    const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+    const pct  = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
     seekTo(pct * state.duration);
   }
   let dragging = false;
   bg.addEventListener("mousedown", e => { dragging = true; onScrub(e); });
   document.addEventListener("mousemove", e => { if (dragging) onScrub(e); });
-  document.addEventListener("mouseup", () => { dragging = false; });
+  document.addEventListener("mouseup",   () => { dragging = false; });
 }
 
 // ── Timeline canvas ────────────────────────────────────────────────
 function drawTimeline() {
-  const canvas = tlCanvas;
   const dpr = window.devicePixelRatio || 1;
-  const W = tlWrap.offsetWidth || 800;
-  const H = 96;
-  canvas.width  = W * dpr;
-  canvas.height = H * dpr;
-  canvas.style.width  = W + "px";
-  canvas.style.height = H + "px";
+  const W   = tlWrap.offsetWidth || 800;
+  const H   = 96;
+  tlCanvas.width        = W * dpr;
+  tlCanvas.height       = H * dpr;
+  tlCanvas.style.width  = W + "px";
+  tlCanvas.style.height = H + "px";
 
-  const ctx = canvas.getContext("2d");
+  const ctx = tlCanvas.getContext("2d");
   ctx.scale(dpr, dpr);
 
-  // background
   ctx.fillStyle = "#0c1a2e";
   ctx.fillRect(0, 0, W, H);
 
-  // subtle hour grid lines
+  // Shade the audio clip region
+  if (state.audioReady && state.audioDuration < Infinity) {
+    const x1 = (state.audioOffset / state.duration) * W;
+    const x2 = ((state.audioOffset + state.audioDuration) / state.duration) * W;
+    ctx.fillStyle = "rgba(0,200,255,0.05)";
+    ctx.fillRect(x1, 0, x2 - x1, H);
+    ctx.strokeStyle = "rgba(0,200,255,0.15)";
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(x1, 0); ctx.lineTo(x1, H); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(x2, 0); ctx.lineTo(x2, H); ctx.stroke();
+  }
+
+  // Subtle time grid
   ctx.strokeStyle = "rgba(0,180,255,0.05)";
   ctx.lineWidth = 1;
   for (let m = 0; m <= 60; m += 5) {
     const x = (m / 60) * W;
-    ctx.beginPath();
-    ctx.moveTo(x, 0); ctx.lineTo(x, H);
-    ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
     if (m % 15 === 0 && m > 0) {
       ctx.fillStyle = "rgba(100,170,220,0.25)";
       ctx.font = `10px 'Space Mono', monospace`;
@@ -298,61 +301,51 @@ function drawTimeline() {
 
   if (!state.dets.length) return;
 
-  // draw detections as lollipops
   const TRACK_H = H - 8;
   state.dets.forEach(d => {
     const meta = spMeta(d.sp);
-    const x = (d.t / state.duration) * W;
+    const x    = (d.t / state.duration) * W;
     const barH = Math.max(4, d.c * TRACK_H * 0.88);
-    const y = H - barH;
+    const y    = H - barH;
 
-    // stem
     ctx.globalAlpha = 0.55;
     ctx.strokeStyle = meta.color;
-    ctx.lineWidth = 1.5;
-    ctx.beginPath();
-    ctx.moveTo(x, H); ctx.lineTo(x, y + 3);
-    ctx.stroke();
+    ctx.lineWidth   = 1.5;
+    ctx.beginPath(); ctx.moveTo(x, H); ctx.lineTo(x, y + 3); ctx.stroke();
 
-    // dot
     ctx.globalAlpha = 0.85;
-    ctx.fillStyle = meta.color;
-    ctx.beginPath();
-    ctx.arc(x, y, 2.5, 0, Math.PI * 2);
-    ctx.fill();
+    ctx.fillStyle   = meta.color;
+    ctx.beginPath(); ctx.arc(x, y, 2.5, 0, Math.PI * 2); ctx.fill();
   });
 
   ctx.globalAlpha = 1;
 }
 
-
 function drawMini() {
-  const canvas = miniCanvas;
   const dpr = window.devicePixelRatio || 1;
-  const W = ($("scrubber-bg").offsetWidth || 600);
-  const H = 40;
-  canvas.width  = W * dpr;
-  canvas.height = H * dpr;
-  canvas.style.width  = W + "px";
-  canvas.style.height = H + "px";
+  const W   = ($("scrubber-bg").offsetWidth || 600);
+  const H   = 40;
+  miniCanvas.width        = W * dpr;
+  miniCanvas.height       = H * dpr;
+  miniCanvas.style.width  = W + "px";
+  miniCanvas.style.height = H + "px";
 
-  const ctx = canvas.getContext("2d");
+  const ctx = miniCanvas.getContext("2d");
   ctx.scale(dpr, dpr);
 
   if (!state.dets.length) return;
 
   state.dets.forEach(d => {
     const meta = spMeta(d.sp);
-    const x = (d.t / state.duration) * W;
+    const x    = (d.t / state.duration) * W;
     const barH = Math.max(2, d.c * (H - 4) * 0.9);
     ctx.globalAlpha = 0.5;
-    ctx.fillStyle = meta.color;
+    ctx.fillStyle   = meta.color;
     ctx.fillRect(x - 0.75, H - barH, 1.5, barH);
   });
   ctx.globalAlpha = 1;
 }
 
-// Redraw canvases (debounced) on resize
 let resizeTimer;
 window.addEventListener("resize", () => {
   clearTimeout(resizeTimer);
@@ -362,39 +355,40 @@ window.addEventListener("resize", () => {
 });
 
 // ── Timeline hover & click ─────────────────────────────────────────
-tlWrap.addEventListener("mousemove", e => {
-  const rect = tlWrap.getBoundingClientRect();
-  const pct  = (e.clientX - rect.left) / rect.width;
-  const t    = pct * state.duration;
-  // find nearest detection within 5s
-  const nearest = state.dets.reduce((best, d) => {
-    const dist = Math.abs(d.t - t);
-    return dist < (best ? Math.abs(best.t - t) : Infinity) ? d : best;
-  }, null);
+function setupTimelineInteraction() {
+  tlWrap.addEventListener("mousemove", e => {
+    const rect = tlWrap.getBoundingClientRect();
+    const pct  = (e.clientX - rect.left) / rect.width;
+    const t    = pct * state.duration;
+    const nearest = state.dets.reduce((best, d) => {
+      const dist = Math.abs(d.t - t);
+      return dist < (best ? Math.abs(best.t - t) : Infinity) ? d : best;
+    }, null);
 
-  if (nearest && Math.abs(nearest.t - t) < (state.duration / tlWrap.offsetWidth) * 20) {
-    const meta = spMeta(nearest.sp);
-    tlTooltip.innerHTML = `
-      <div class="tl-tooltip-sp" style="color:${meta.color}">${meta.emoji} ${meta.name}</div>
-      <div class="tl-tooltip-detail">${fmtTime(nearest.t)} · ${Math.round(nearest.c * 100)}% conf</div>`;
-    const tipW = 160;
-    let left = e.clientX - rect.left - tipW / 2;
-    left = Math.max(4, Math.min(rect.width - tipW - 4, left));
-    tlTooltip.style.left = left + "px";
-    tlTooltip.style.top  = "6px";
-    tlTooltip.classList.add("visible");
-  } else {
-    tlTooltip.classList.remove("visible");
-  }
-});
+    if (nearest && Math.abs(nearest.t - t) < (state.duration / tlWrap.offsetWidth) * 20) {
+      const meta = spMeta(nearest.sp);
+      tlTooltip.innerHTML = `
+        <div class="tl-tooltip-sp" style="color:${meta.color}">${meta.emoji} ${meta.name}</div>
+        <div class="tl-tooltip-detail">${fmtTime(nearest.t)} · ${Math.round(nearest.c * 100)}% conf</div>`;
+      const tipW = 160;
+      let left   = e.clientX - rect.left - tipW / 2;
+      left = Math.max(4, Math.min(rect.width - tipW - 4, left));
+      tlTooltip.style.left = left + "px";
+      tlTooltip.style.top  = "6px";
+      tlTooltip.classList.add("visible");
+    } else {
+      tlTooltip.classList.remove("visible");
+    }
+  });
 
-tlWrap.addEventListener("mouseleave", () => tlTooltip.classList.remove("visible"));
+  tlWrap.addEventListener("mouseleave", () => tlTooltip.classList.remove("visible"));
 
-tlWrap.addEventListener("click", e => {
-  const rect = tlWrap.getBoundingClientRect();
-  const pct  = (e.clientX - rect.left) / rect.width;
-  seekTo(pct * state.duration);
-});
+  tlWrap.addEventListener("click", e => {
+    const rect = tlWrap.getBoundingClientRect();
+    const pct  = (e.clientX - rect.left) / rect.width;
+    seekTo(pct * state.duration);
+  });
+}
 
 // ── Active detection cards ─────────────────────────────────────────
 let prevActiveSet = new Set();
@@ -403,7 +397,6 @@ function updateActiveCards() {
   const t   = state.currentTime;
   const win = state.dets.filter(d => Math.abs(d.t - t) <= WINDOW);
 
-  // aggregate: highest confidence per species in window
   const bySpecies = new Map();
   win.forEach(d => {
     const cur = bySpecies.get(d.sp);
@@ -411,29 +404,24 @@ function updateActiveCards() {
   });
 
   const activeSet = new Set(bySpecies.keys());
-
-  // check if anything changed
   const changed =
     activeSet.size !== prevActiveSet.size ||
     [...activeSet].some(k => !prevActiveSet.has(k)) ||
     [...prevActiveSet].some(k => !activeSet.has(k));
 
   if (!changed) {
-    // update confidence bars only
     bySpecies.forEach((d, sp) => {
       const card = activeCards.querySelector(`[data-sp="${sp}"]`);
       if (card) {
-        card.querySelector(".conf-fill").style.width = `${d.c * 100}%`;
-        card.querySelector(".conf-pct").textContent  = `${Math.round(d.c * 100)}%`;
-        card.querySelector(".card-time").textContent = fmtTime(d.t);
+        card.querySelector(".conf-fill").style.width  = `${d.c * 100}%`;
+        card.querySelector(".conf-pct").textContent   = `${Math.round(d.c * 100)}%`;
+        card.querySelector(".card-time").textContent  = fmtTime(d.t);
       }
     });
     return;
   }
 
   prevActiveSet = activeSet;
-
-  // full re-render of active cards
   activeCards.innerHTML = "";
 
   if (!bySpecies.size) {
@@ -442,16 +430,14 @@ function updateActiveCards() {
     return;
   }
 
-  // sort by confidence desc
   const sorted = [...bySpecies.entries()].sort((a, b) => b[1].c - a[1].c);
 
   sorted.forEach(([sp, d]) => {
     const meta = spMeta(sp);
-    const wasNew = !prevActiveSet.has(sp);
     const card = document.createElement("div");
     card.className = "det-card active";
     card.dataset.sp = sp;
-    card.style.setProperty("--sp-color", meta.color);
+    card.style.cssText = `--sp-color:${meta.color}`;
 
     card.innerHTML = `
       <div class="card-top">
@@ -470,19 +456,10 @@ function updateActiveCards() {
       </div>
       <div class="card-time">detected at ${fmtTime(d.t)}</div>`;
 
-    // colour top border
-    card.style.setProperty("--sp-color", meta.color);
-    card.style.cssText += `--sp-color:${meta.color}`;
-    const before = document.createElement("style");
-    card.appendChild(before);
-
-    // pulse ring for newly appearing detection
-    if (wasNew) {
-      const ring = document.createElement("div");
-      ring.className = "pulse-ring";
-      ring.style.background = meta.color;
-      card.appendChild(ring);
-    }
+    const ring = document.createElement("div");
+    ring.className = "pulse-ring";
+    ring.style.background = meta.color;
+    card.appendChild(ring);
 
     activeCards.appendChild(card);
   });
@@ -511,15 +488,15 @@ function buildStats() {
     totals.set(d.sp, cur);
   });
 
-  const sorted = [...totals.entries()].sort((a, b) => b[1].count - a[1].count);
-  const maxCount = sorted[0]?.[1].count || 1;
+  const sorted    = [...totals.entries()].sort((a, b) => b[1].count - a[1].count);
+  const maxCount  = sorted[0]?.[1].count || 1;
 
   statsList.innerHTML = "";
   sorted.forEach(([sp, { count, maxConf }]) => {
-    const meta  = spMeta(sp);
-    const mins  = (count * 2.5 / 60).toFixed(1);
-    const pct   = (count / maxCount) * 100;
-    const row = document.createElement("div");
+    const meta = spMeta(sp);
+    const mins = (count * 2.5 / 60).toFixed(1);
+    const pct  = (count / maxCount) * 100;
+    const row  = document.createElement("div");
     row.className = "stat-row";
     row.innerHTML = `
       <div class="stat-name">
@@ -537,8 +514,8 @@ function buildStats() {
 
 // ── Helpers ────────────────────────────────────────────────────────
 function fmtTime(s) {
-  const h = Math.floor(s / 3600);
-  const m = Math.floor((s % 3600) / 60);
+  const h   = Math.floor(s / 3600);
+  const m   = Math.floor((s % 3600) / 60);
   const sec = Math.floor(s % 60);
   if (h > 0) return `${h}:${String(m).padStart(2, "0")}:${String(sec).padStart(2, "0")}`;
   return `${String(m).padStart(2, "0")}:${String(sec).padStart(2, "0")}`;

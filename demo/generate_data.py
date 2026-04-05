@@ -34,14 +34,30 @@ import polars as pl
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Export whalu detections to demo JSON.")
+    parser = argparse.ArgumentParser(
+        description="Export whalu detections to demo JSON."
+    )
     parser.add_argument("input_dir", help="Directory of .parquet detection files")
     parser.add_argument("output_dir", help="Output directory for detections.json")
     parser.add_argument("--source", default=None, help="Override source label")
-    parser.add_argument("--duration", type=float, default=None, help="Recording duration (s)")
+    parser.add_argument(
+        "--duration", type=float, default=None, help="Recording duration (s)"
+    )
+    parser.add_argument(
+        "--audio-offset",
+        type=float,
+        default=None,
+        help="Start time (s) in the recording where the audio clip begins",
+    )
+    parser.add_argument(
+        "--audio-duration",
+        type=float,
+        default=None,
+        help="Duration (s) of the accompanying audio clip",
+    )
     args = parser.parse_args()
 
-    input_dir  = Path(args.input_dir)
+    input_dir = Path(args.input_dir)
     output_dir = Path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -65,19 +81,23 @@ def main() -> None:
 
     detections = [
         {
-            "t":  round(float(row["time_start_s"]), 1),
+            "t": round(float(row["time_start_s"]), 1),
             "sp": row["species"],
-            "c":  round(float(row["confidence"]), 3),
+            "c": round(float(row["confidence"]), 3),
         }
         for row in df.sort("time_start_s").iter_rows(named=True)
     ]
 
-    payload = {
-        "source":   source,
+    payload: dict = {
+        "source": source,
         "duration": duration,
         "isSample": False,
-        "dets":     detections,
+        "dets": detections,
     }
+    if args.audio_offset is not None:
+        payload["audioOffset"] = args.audio_offset
+    if args.audio_duration is not None:
+        payload["audioDuration"] = args.audio_duration
 
     out = output_dir / "detections.json"
     out.write_text(json.dumps(payload, separators=(",", ":")))

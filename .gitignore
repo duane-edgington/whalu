@@ -12,9 +12,8 @@ build/
 /data/
 *.parquet
 
-# Demo — real audio and detection files (too large for git)
-demo/data/audio.*
-demo/data/detections.json
+# Demo — large WAV only (MP3 clip and detections.json are committed)
+demo/data/audio.wav
 
 # Environment
 .env

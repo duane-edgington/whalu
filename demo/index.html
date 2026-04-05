@@ -15,8 +15,91 @@
 
   <header>
     <div class="header-left">
-      <div class="logo">whalu</div>
-      <span class="tagline">marine bioacoustics · Perch v2 · MBARI Pacific Sound</span>
+      <!-- icon portion of assets/logo.svg (waveform + fluke, no wordmark) -->
+      <svg class="header-icon" viewBox="5 15 325 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <defs>
+          <path id="wave-hdr"
+                d="M15,90 L48,90
+                   C50,90 52,82 55,82 C58,82 62,90 64,90
+                   C66,90 69,82 74,82 C79,82 82,90 84,90
+                   L95,90
+                   C98,90 104,42 110,42 C116,42 122,90 125,90
+                   L130,90
+                   C134,90 140,28 148,28 C156,28 161,90 165,90
+                   L168,90
+                   C170,90 174,52 180,52 C186,52 194,90 198,90
+                   L205,90
+                   C207,90 210,70 215,70 C220,70 224,90 228,90
+                   L234,90
+                   C236,90 239,83 243,83 C247,83 250,90 254,90
+                   L264,90"/>
+          <radialGradient id="glowbg-hdr" cx="155" cy="90" r="160" gradientUnits="userSpaceOnUse">
+            <stop offset="0%"   stop-color="#22D3EE" stop-opacity="0.07"/>
+            <stop offset="100%" stop-color="#22D3EE" stop-opacity="0"/>
+          </radialGradient>
+          <linearGradient id="waveg-hdr" x1="15" y1="0" x2="305" y2="0" gradientUnits="userSpaceOnUse">
+            <stop offset="0%"   stop-color="#22D3EE"/>
+            <stop offset="50%"  stop-color="#0891B2"/>
+            <stop offset="100%" stop-color="#1D4ED8"/>
+          </linearGradient>
+          <filter id="glow-hdr" x="-50%" y="-50%" width="200%" height="200%">
+            <feGaussianBlur stdDeviation="3.5" result="blur"/>
+            <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+          </filter>
+          <filter id="softglow-hdr" x="-30%" y="-30%" width="160%" height="160%">
+            <feGaussianBlur stdDeviation="1.8" result="blur"/>
+            <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+          </filter>
+          <filter id="tracerglow-hdr" x="-200%" y="-200%" width="500%" height="500%">
+            <feGaussianBlur stdDeviation="5" result="blur"/>
+            <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+          </filter>
+          <filter id="flukegl-hdr" x="-60%" y="-60%" width="220%" height="220%">
+            <feGaussianBlur stdDeviation="4.5" result="blur"/>
+            <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+          </filter>
+        </defs>
+        <!-- ghost echo -->
+        <path d="M15,90 L48,90 C50,90 52,82 55,82 C58,82 62,90 64,90 C66,90 69,82 74,82 C79,82 82,90 84,90 L95,90 C98,90 104,42 110,42 C116,42 122,90 125,90 L130,90 C134,90 140,28 148,28 C156,28 161,90 165,90 L168,90 C170,90 174,52 180,52 C186,52 194,90 198,90 L205,90 C207,90 210,70 215,70 C220,70 224,90 228,90 L234,90 C236,90 239,83 243,83 C247,83 250,90 254,90 L262,90"
+              stroke="url(#waveg-hdr)" stroke-width="1.2" fill="none" stroke-linecap="round" stroke-linejoin="round" opacity="0.18"/>
+        <!-- main line -->
+        <path d="M15,90 L48,90 C50,90 52,82 55,82 C58,82 62,90 64,90 C66,90 69,82 74,82 C79,82 82,90 84,90 L95,90 C98,90 104,42 110,42 C116,42 122,90 125,90 L130,90 C134,90 140,28 148,28 C156,28 161,90 165,90 L168,90 C170,90 174,52 180,52 C186,52 194,90 198,90 L205,90 C207,90 210,70 215,70 C220,70 224,90 228,90 L234,90 C236,90 239,83 243,83 C247,83 250,90 254,90 L262,90"
+              stroke="url(#waveg-hdr)" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round" filter="url(#glow-hdr)" opacity="0.88"/>
+        <!-- detection nodes -->
+        <circle cx="110" cy="42" r="3.5" fill="#22D3EE" filter="url(#softglow-hdr)">
+          <animate attributeName="opacity" values="0.5;1;0.5" dur="2.8s" repeatCount="indefinite"/>
+        </circle>
+        <circle cx="148" cy="28" r="6" fill="#22D3EE" filter="url(#glow-hdr)">
+          <animate attributeName="r"       values="5.5;7.5;5.5" dur="1.4s" repeatCount="indefinite"/>
+          <animate attributeName="opacity" values="1;0.45;1"    dur="1.4s" repeatCount="indefinite"/>
+        </circle>
+        <circle cx="180" cy="52" r="4.5" fill="#0891B2" filter="url(#softglow-hdr)">
+          <animate attributeName="opacity" values="0.55;1;0.55" dur="2.2s" repeatCount="indefinite"/>
+        </circle>
+        <circle cx="215" cy="70" r="3" fill="#0891B2" filter="url(#softglow-hdr)" opacity="0.7">
+          <animate attributeName="opacity" values="0.4;0.8;0.4" dur="2.8s" begin="0.4s" repeatCount="indefinite"/>
+        </circle>
+        <!-- fluke -->
+        <path d="M268,90 C263,80 245,68 243,56 C241,55 241,52 245,52 C260,52 275,56 283,66 C291,56 306,52 321,52 C325,52 325,55 323,56 C321,68 303,80 298,90 Z"
+              fill="#22D3EE" opacity="0.1"/>
+        <path d="M268,90 C263,80 245,68 243,56 C241,55 241,52 245,52 C260,52 275,56 283,66 C291,56 306,52 321,52 C325,52 325,55 323,56 C321,68 303,80 298,90 Z"
+              fill="#22D3EE" filter="url(#flukegl-hdr)">
+          <animate attributeName="opacity" values="0.72;1.0;0.72" dur="2.2s" repeatCount="indefinite"/>
+        </path>
+        <path d="M260,91 C265,88 272,94 279,91 C284,88 292,94 298,91 C303,88 311,94 316,91"
+              stroke="#67E8F9" stroke-width="1.4" fill="none" stroke-linecap="round">
+          <animate attributeName="opacity" values="0.25;0.55;0.25" dur="2.2s" repeatCount="indefinite"/>
+        </path>
+        <!-- tracer -->
+        <circle r="4.5" fill="#67E8F9" filter="url(#tracerglow-hdr)">
+          <animateMotion dur="4s" repeatCount="indefinite" rotate="none"><mpath href="#wave-hdr"/></animateMotion>
+          <animate attributeName="opacity" values="0;0.9;0.9;0.9;0" keyTimes="0;0.06;0.5;0.88;1" dur="4s" repeatCount="indefinite"/>
+        </circle>
+      </svg>
+      <div class="header-text">
+        <div class="logo">whalu</div>
+        <span class="tagline">marine bioacoustics · Perch v2 · MBARI Pacific Sound</span>
+      </div>
     </div>
     <a class="gh-link" href="https://github.com/amrit110/whalu" target="_blank">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"/></svg>
@@ -26,35 +109,13 @@
 
   <main>
 
-    <!-- ── LOAD PANEL ───────────────────────────────────────────────── -->
-    <section id="load-panel" class="load-panel">
-      <div class="load-card">
-        <div class="load-wave">🌊</div>
-        <h1 class="load-title">Whale Detection Demo</h1>
-        <p class="load-desc">
-          Listen to a raw MBARI hydrophone recording and watch Google Perch
-          identify whale species in real time — blue whales, fin whales,
-          humpbacks, and more.
-        </p>
-        <div class="load-actions">
-          <label class="btn-primary" for="audio-input">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
-            Load audio file
-            <input type="file" id="audio-input" accept="audio/*" />
-          </label>
-          <button class="btn-ghost" id="demo-btn">Explore sample data →</button>
-        </div>
-        <p class="load-hint">
-          No audio? Use sample data to explore a simulated 1-hour recording
-          from Monterey Canyon with real detection patterns.
-        </p>
-        <div class="load-steps">
-          <div class="step"><span class="step-n">1</span>Run <code>whalu scan mbari --start 2026-03 --max-files 1 --limit-hours 1</code></div>
-          <div class="step"><span class="step-n">2</span>Run <code>python demo/generate_data.py data/detections/mbari demo/data/</code></div>
-          <div class="step"><span class="step-n">3</span>Load the exported <code>audio.wav</code> above</div>
-        </div>
+    <!-- ── LOADING STATE ──────────────────────────────────────────── -->
+    <div id="loading" class="loading-state">
+      <div class="loading-inner">
+        <div class="loading-pulse"></div>
+        <p>Loading detection data...</p>
       </div>
-    </section>
+    </div>
 
     <!-- ── MAIN VIS ─────────────────────────────────────────────────── -->
     <div id="vis" class="vis hidden">
@@ -78,7 +139,7 @@
           <span class="meta-val" id="m-count">—</span>
         </div>
         <div class="meta-item">
-          <span class="meta-key">Mode</span>
+          <span class="meta-key">Audio</span>
           <span class="meta-val meta-mode" id="m-mode">—</span>
         </div>
       </div>
@@ -105,6 +166,7 @@
             next
           </button>
         </div>
+        <div id="audio-hint" class="audio-hint hidden"></div>
       </section>
 
       <!-- timeline -->
