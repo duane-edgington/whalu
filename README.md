@@ -33,6 +33,7 @@ whalu [-v] <command> ...
 |---------|-------------|
 | `whalu scan mbari` | Run detection over MBARI Pacific Sound (S3, no auth required) |
 | `whalu scan orcasound` | Run detection over Orcasound labeled samples (S3, no auth required) |
+| `whalu scan noaa` | Run detection over NOAA NRS or SanctSound data (GCS, no auth required) |
 | `whalu analyze` | Summarize and visualize stored detections |
 | `whalu info [source]` | Show sensor/dataset metadata for a source |
 
@@ -53,6 +54,17 @@ whalu [-v] <command> ...
 | `--key S3_KEY` | labeled killer whale sample | Specific S3 key to process |
 | `--output-dir PATH` | `data/detections/orcasound` | Where to write Parquet files |
 
+### `whalu scan noaa`
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--program nrs\|sanctsound` | required | Dataset: `nrs` (12 stations, 5 kHz) or `sanctsound` (30 sites, 48 kHz) |
+| `--site SITE` | required | Station/site ID, e.g. `01` (NRS) or `mb01` (SanctSound) |
+| `--deployment NAME` | all deployments | Specific deployment to process |
+| `--max-files N` | all | Stop after N files per deployment |
+| `--limit-s N` | full file | Only process first N seconds per file |
+| `--output-dir PATH` | `data/detections/noaa` | Where to write Parquet files |
+
 ### `whalu analyze`
 
 | Flag | Default | Description |
@@ -64,7 +76,7 @@ whalu [-v] <command> ...
 
 | Flag | Default | Description |
 |------|---------|-------------|
-| `source` | (all) | Source ID to inspect (`mbari`, `orcasound`) |
+| `source` | (all) | Source ID to inspect (`mbari`, `orcasound`, `noaa-nrs`, `noaa-sanctsound`) |
 
 ### Examples
 
@@ -81,6 +93,12 @@ whalu scan mbari --start 2023-07 --end 2023-10
 # Orcasound validation sample
 whalu scan orcasound
 
+# NOAA NRS quick test (site 01, first file, first 10 minutes)
+whalu scan noaa --program nrs --site 01 --max-files 1 --limit-s 600
+
+# NOAA SanctSound Monterey Bay, all deployments
+whalu scan noaa --program sanctsound --site mb01
+
 # Analyze stored detections
 whalu analyze --input-dir data/detections/mbari
 
@@ -95,10 +113,13 @@ whalu info
 |--------|----------|----------|--------|
 | [MBARI Pacific Sound](https://registry.opendata.aws/pacific-sound/) | Monterey Canyon, CA | 2015-present | 16 kHz 24-bit WAV, 1 file/day (4.1 GB) |
 | [Orcasound](https://www.orcasound.net/) | Puget Sound, WA | 2017-present | 20 kHz 16-bit WAV |
+| [NOAA NRS](https://www.ncei.noaa.gov/products/passive-acoustic-data) | 12 US ocean sites | 2014-present | 5 kHz 16-bit FLAC, ~4h per file (GCS) |
+| [NOAA SanctSound](https://sanctsound.ioos.us/) | 8 US marine sanctuaries | 2018-2021 | 48 kHz 24-bit FLAC, 15-30 min per file (GCS) |
 
 ## How it works
 
-- Streams 4 GB daily files via S3 range requests in 1-hour chunks (~172 MB each), bounded RAM
+- MBARI: streams 4 GB daily WAV files via S3 range requests in 1-hour chunks (~172 MB each), bounded RAM
+- NOAA: downloads full FLAC files from GCS (FLAC does not support range requests), splits in memory
 - Applies sigmoid activation (correct for the multi-label whale model, not softmax)
 - Emits detections only where confidence >= 0.5
 - Stores one Parquet file per audio source, runs are resumable
