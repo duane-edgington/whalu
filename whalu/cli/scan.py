@@ -1,5 +1,5 @@
 """
-whalu-scan: Run whale detection over MBARI / Orcasound audio archives.
+whalu-scan: Run whale detection over MBARI / Orcasound / NOAA audio archives.
 
 Examples
 --------
@@ -14,6 +14,12 @@ uv run whalu-scan mbari --start 2023-07 --end 2023-10
 
 # Orcasound validation sample
 uv run whalu-scan orcasound
+
+# NOAA NRS quick test (site 01, first file, first 600 s)
+uv run whalu-scan noaa --program nrs --site 01 --max-files 1 --limit-s 600
+
+# NOAA SanctSound Monterey Bay
+uv run whalu-scan noaa --program sanctsound --site mb01
 """
 
 import argparse
@@ -47,6 +53,7 @@ from whalu.analysis import (
 )
 from whalu.models.loader import get_whale_model
 import whalu.data.mbari as mbari
+import whalu.data.noaa as noaa
 import whalu.data.orcasound as orcasound  # type: ignore[reportMissingImports]
 from whalu.detection.runner import run_detections
 from whalu.db.store import DetectionStore
@@ -279,6 +286,150 @@ def cmd_orcasound(args: argparse.Namespace) -> None:
         len(df),
         args.output_dir,
         stem,
+    )
+    _render_summary(store)
+
+
+# ---------------------------------------------------------------------------
+# NOAA
+# ---------------------------------------------------------------------------
+
+
+def cmd_noaa(args: argparse.Namespace) -> None:
+    import polars as pl
+
+    model = get_whale_model()
+    store = DetectionStore(args.output_dir)
+    program: str = args.program
+    site: str = args.site
+    limit_s: float | None = args.limit_s
+
+    console.print(
+        Rule(
+            f"[bold cyan]NOAA {program.upper()} · site {site}  (gs://noaa-passive-bioacoustic)",
+            style="cyan",
+        )
+    )
+
+    deployments = noaa.list_deployments(program, site)
+    if args.deployment:
+        if args.deployment not in deployments:
+            log.error(
+                "Deployment %r not found. Available: %s",
+                args.deployment,
+                ", ".join(deployments) or "(none)",
+            )
+            sys.exit(1)
+        deployments = [args.deployment]
+
+    if not deployments:
+        log.warning("No deployments found for %s/%s", program, site)
+        return
+
+    total = skipped = processed = errors = 0
+
+    with _progress() as progress:
+        for deployment in deployments:
+            console.print(Rule(f"[dim]{deployment}[/dim]", style="dim"))
+            blob_names = noaa.list_files(program, site, deployment)
+            if not blob_names:
+                log.warning("No FLAC files in deployment %s", deployment)
+                continue
+
+            if args.max_files:
+                blob_names = blob_names[: args.max_files]
+
+            task = progress.add_task(deployment[:40], total=len(blob_names))
+
+            for blob_name in blob_names:
+                fname = Path(blob_name).name
+                stem = f"noaa_{program}_{site}_{deployment}_{Path(blob_name).stem}"
+                source_name = f"noaa-{program}/{fname}"
+                total += 1
+
+                progress.update(task, description=f"[cyan]{fname[:40]}[/cyan]")
+
+                if store.is_done(stem):
+                    log.debug("Skip (already done): %s", stem)
+                    skipped += 1
+                    progress.advance(task)
+                    continue
+
+                try:
+                    chunk_dfs: list[pl.DataFrame] = []
+                    total_dur = 0.0
+
+                    if limit_s is not None:
+                        # Download truncated for quick tests
+                        chunk_audio, chunk_dur = noaa.download_audio(
+                            blob_name, model.sample_rate, limit_s=limit_s
+                        )
+                        chunk_dfs.append(
+                            run_detections(model, chunk_audio, source_name=source_name)
+                        )
+                        total_dur = chunk_dur
+                    else:
+                        n_chunks = 0
+                        for (
+                            chunk_audio,
+                            chunk_start_s,
+                            chunk_dur_s,
+                        ) in noaa.stream_chunks(
+                            blob_name, model.sample_rate, chunk_s=3600.0
+                        ):
+                            n_chunks += 1
+                            progress.update(
+                                task,
+                                description=f"[cyan]{fname[:28]}  chunk {n_chunks}[/cyan]",
+                            )
+                            chunk_dfs.append(
+                                run_detections(
+                                    model,
+                                    chunk_audio,
+                                    source_name=source_name,
+                                    offset_s=chunk_start_s,
+                                )
+                            )
+                            total_dur += chunk_dur_s
+
+                    df = (
+                        pl.concat(chunk_dfs)
+                        if chunk_dfs
+                        else pl.DataFrame(
+                            {
+                                "source": [],
+                                "time_start_s": [],
+                                "time_end_s": [],
+                                "species": [],
+                                "confidence": [],
+                                "rank": [],
+                            }
+                        )
+                    )
+                    log.info(
+                        "[green]✓[/green] %-42s  [cyan]%.1fh[/cyan]  %d detections",
+                        fname,
+                        total_dur / 3600,
+                        len(df),
+                    )
+                    store.write(df, stem)
+                    processed += 1
+                except Exception as exc:
+                    log.error("[red]✗[/red] %s: %s", fname, exc, exc_info=True)
+                    errors += 1
+
+                progress.advance(task)
+
+    console.print()
+    stats = Table.grid(padding=(0, 2))
+    stats.add_row(
+        Text(f"✓ {processed} processed", style="bold green"),
+        Text(f"↷ {skipped} skipped", style="dim"),
+        Text(f"✗ {errors} errors", style="bold red" if errors else "dim"),
+        Text(f"∑ {total} total", style="bold"),
+    )
+    console.print(
+        Panel(stats, title="Run complete", border_style="green", padding=(0, 2))
     )
     _render_summary(store)
 
@@ -647,7 +798,7 @@ def _print_banner() -> None:
             False,
             "",
             "  --max-files 1 --limit-hours 1",
-            "↳ single-day test (~172 MB/file)",
+            "single-day test (~172 MB/file)",
         ),
         (
             True,
@@ -656,8 +807,20 @@ def _print_banner() -> None:
             "scan a date range",
         ),
         (True, "whalu scan orcasound", "", "detect whales · Orcasound / Puget Sound"),
+        (
+            True,
+            "whalu scan noaa",
+            "--program nrs --site 01",
+            "NOAA NRS · 12 stations, 5 kHz",
+        ),
+        (
+            False,
+            "",
+            "  --program sanctsound --site mb01",
+            "NOAA SanctSound · Monterey Bay",
+        ),
         (True, "whalu info mbari", "", "sensor, species, S3 coverage"),
-        (True, "whalu info orcasound", "", "Orcasound network info"),
+        (True, "whalu info noaa-nrs", "", "NOAA NRS network info"),
     ]
     lines: list[Text] = []
     for is_cmd, cmd, flags, desc in _CMDS:
@@ -729,6 +892,42 @@ def build_parser() -> argparse.ArgumentParser:
     )
     o.add_argument("--output-dir", default="data/detections/orcasound")
 
+    n = scan_sub.add_parser(
+        "noaa", help="NOAA passive acoustic data (gs://noaa-passive-bioacoustic)"
+    )
+    n.add_argument(
+        "--program",
+        required=True,
+        choices=["nrs", "sanctsound"],
+        help="Dataset: nrs (12 stations, 5 kHz) or sanctsound (30 sites, 48 kHz)",
+    )
+    n.add_argument(
+        "--site",
+        required=True,
+        metavar="SITE",
+        help="Station/site ID, e.g. 01 (NRS) or mb01 (SanctSound)",
+    )
+    n.add_argument(
+        "--deployment",
+        metavar="NAME",
+        help="Specific deployment name (default: all deployments)",
+    )
+    n.add_argument(
+        "--max-files",
+        type=int,
+        default=None,
+        metavar="N",
+        help="Only process the first N files per deployment (default: all)",
+    )
+    n.add_argument(
+        "--limit-s",
+        type=float,
+        default=None,
+        metavar="N",
+        help="Only process first N seconds per file (default: full file)",
+    )
+    n.add_argument("--output-dir", default="data/detections/noaa")
+
     # ── analyze ───────────────────────────────────────────────────────────────
     az = sub.add_parser("analyze", help="Analyze detection Parquet files")
     az.add_argument(
@@ -772,6 +971,8 @@ def main() -> None:
             cmd_mbari(args)
         elif args.source == "orcasound":
             cmd_orcasound(args)
+        elif args.source == "noaa":
+            cmd_noaa(args)
         else:
             log.error("Unknown source: %s", args.source)
             sys.exit(1)
