@@ -27,15 +27,13 @@ function spMeta(code) {
 
 // ── State ──────────────────────────────────────────────────────────
 const state = {
-  dets:          [],
-  duration:      3600,  // full recording duration in seconds
-  source:        "",
-  currentTime:   0,     // position within the full recording (seconds)
-  playing:       false,
-  audioReady:    false,
-  audioOffset:   0,     // start of audio clip within the full recording
-  audioDuration: Infinity, // length of the audio clip
-  simInterval:   null,
+  dets:        [],
+  duration:    200,
+  source:      "",
+  currentTime: 0,
+  playing:     false,
+  audioReady:  false,
+  simInterval: null,
 };
 
 const WINDOW = 10; // seconds either side shown in active cards
@@ -88,7 +86,7 @@ async function init() {
   }
 
   // Load audio
-  await loadAudio(data);
+  await loadAudio();
 
   $("loading").classList.add("hidden");
   $("vis").classList.remove("hidden");
@@ -96,53 +94,41 @@ async function init() {
   requestAnimationFrame(() => loadData(data));
 }
 
-async function loadAudio(data) {
-  state.audioOffset   = data.audioOffset   || 0;
-  state.audioDuration = data.audioDuration || Infinity;
-
-  // Try audio.mp3 first, fall back to audio.wav
+async function loadAudio() {
   for (const name of ["audio.mp3", "audio.wav"]) {
     try {
       const r = await fetch(`data/${name}`, { method: "HEAD" });
       if (r.ok) {
         audioEl.src = `data/${name}`;
         audioEl.load();
-        // Seek into full recording to the audio clip start
-        state.currentTime = state.audioOffset;
-
         audioEl.addEventListener("timeupdate", () => {
-          state.currentTime = state.audioOffset + audioEl.currentTime;
+          state.currentTime = audioEl.currentTime;
           updatePosition();
           updateActiveCards();
         });
-        audioEl.addEventListener("ended", () => {
-          setPlaying(false);
-        });
-
+        audioEl.addEventListener("ended", () => setPlaying(false));
         state.audioReady = true;
-
-        if (state.audioOffset > 0) {
-          const start = fmtTime(state.audioOffset);
-          const end   = fmtTime(state.audioOffset + state.audioDuration);
-          audioHint.textContent = `Audio clip: ${start} – ${end} of full recording`;
-          audioHint.classList.remove("hidden");
-        }
         break;
       }
     } catch (_) { /* try next */ }
   }
-
-  if (!state.audioReady) {
-    $("m-mode").textContent = "detections only";
-  }
 }
 
 function loadData(data) {
-  state.dets     = data.dets || [];
-  state.duration = data.duration || 3600;
-  state.source   = data.source  || "";
+  state.source = data.source || "";
 
-  // Human-readable source name (strip parquet file naming conventions)
+  // If the JSON describes a clip window, trim detections to that range
+  // and rescale timestamps to 0-based so the timeline matches the audio exactly.
+  const offset  = data.audioOffset   || 0;
+  const clipDur = data.audioDuration || data.duration || 3600;
+  const allDets = data.dets || [];
+
+  state.dets = allDets
+    .filter(d => d.t >= offset && d.t < offset + clipDur)
+    .map(d => ({ ...d, t: Math.round((d.t - offset) * 10) / 10 }));
+  state.duration = clipDur;
+
+  // Human-readable source name
   const sourceLabel = state.source
     .replace(/^mbari_\d{4}_\d{2}_/, "")
     .replace(/_lim[\d.]+h$/, "");
@@ -152,9 +138,9 @@ function loadData(data) {
   $("time-tot").textContent = fmtTime(state.duration);
 
   if (state.audioReady) {
-    $("m-mode").textContent = state.audioDuration < Infinity
-      ? `${Math.round(state.audioDuration)}s clip`
-      : "full audio";
+    $("m-mode").textContent = "live audio";
+  } else {
+    $("m-mode").textContent = "detections only";
   }
 
   buildLegend();
@@ -170,22 +156,8 @@ function loadData(data) {
 // ── Playback ───────────────────────────────────────────────────────
 function togglePlay() {
   if (state.audioReady) {
-    if (audioEl.paused) {
-      // If cursor is outside the audio clip range, seek to clip start
-      const inClip = state.currentTime >= state.audioOffset &&
-                     state.currentTime < state.audioOffset + state.audioDuration;
-      if (!inClip) {
-        state.currentTime = state.audioOffset;
-        audioEl.currentTime = 0;
-      } else {
-        audioEl.currentTime = state.currentTime - state.audioOffset;
-      }
-      audioEl.play();
-      setPlaying(true);
-    } else {
-      audioEl.pause();
-      setPlaying(false);
-    }
+    if (audioEl.paused) { audioEl.play(); setPlaying(true); }
+    else                { audioEl.pause(); setPlaying(false); }
   } else {
     if (state.playing) { stopSim(); setPlaying(false); }
     else               { startSim(); setPlaying(true); }
@@ -222,16 +194,7 @@ function jumpToNextDet() {
 
 function seekTo(t) {
   state.currentTime = Math.max(0, Math.min(t, state.duration));
-  if (state.audioReady) {
-    const inClip = state.currentTime >= state.audioOffset &&
-                   state.currentTime < state.audioOffset + state.audioDuration;
-    if (inClip) {
-      audioEl.currentTime = state.currentTime - state.audioOffset;
-    } else {
-      audioEl.pause();
-      setPlaying(false);
-    }
-  }
+  if (state.audioReady) audioEl.currentTime = state.currentTime;
   updatePosition();
   updateActiveCards();
 }
@@ -274,28 +237,21 @@ function drawTimeline() {
   ctx.fillStyle = "#0c1a2e";
   ctx.fillRect(0, 0, W, H);
 
-  // Shade the audio clip region
-  if (state.audioReady && state.audioDuration < Infinity) {
-    const x1 = (state.audioOffset / state.duration) * W;
-    const x2 = ((state.audioOffset + state.audioDuration) / state.duration) * W;
-    ctx.fillStyle = "rgba(0,200,255,0.05)";
-    ctx.fillRect(x1, 0, x2 - x1, H);
-    ctx.strokeStyle = "rgba(0,200,255,0.15)";
-    ctx.lineWidth = 1;
-    ctx.beginPath(); ctx.moveTo(x1, 0); ctx.lineTo(x1, H); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(x2, 0); ctx.lineTo(x2, H); ctx.stroke();
-  }
+  // Dynamic time grid — adapt tick interval to recording duration
+  const dur = state.duration;
+  const tickIntervals = [10, 15, 20, 30, 60, 120, 300];
+  const tickInterval = tickIntervals.find(t => dur / t <= 20) || 300;
+  const labelEvery   = tickInterval * (dur <= 120 ? 2 : dur <= 600 ? 2 : 3);
 
-  // Subtle time grid
   ctx.strokeStyle = "rgba(0,180,255,0.05)";
   ctx.lineWidth = 1;
-  for (let m = 0; m <= 60; m += 5) {
-    const x = (m / 60) * W;
+  for (let t = 0; t <= dur; t += tickInterval) {
+    const x = (t / dur) * W;
     ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
-    if (m % 15 === 0 && m > 0) {
+    if (t > 0 && t % labelEvery === 0) {
       ctx.fillStyle = "rgba(100,170,220,0.25)";
       ctx.font = `10px 'Space Mono', monospace`;
-      ctx.fillText(m + "m", x + 3, H - 4);
+      ctx.fillText(fmtTime(t), x + 3, H - 4);
     }
   }
 
