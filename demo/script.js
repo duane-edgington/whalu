@@ -36,7 +36,8 @@ const state = {
   simInterval: null,
 };
 
-const WINDOW = 10; // seconds either side shown in active cards
+const LOOK_AHEAD = 5;  // show detections starting within this many seconds
+const LOOK_BACK  = 3;  // keep showing for this many seconds after the window ends
 
 // ── DOM refs ───────────────────────────────────────────────────────
 const $ = id => document.getElementById(id);
@@ -383,7 +384,11 @@ let prevActiveSet = new Set();
 
 function updateActiveCards() {
   const t   = state.currentTime;
-  const win = state.dets.filter(d => Math.abs(d.t - t) <= WINDOW);
+  // A detection is active when its 5s window overlaps the current playhead,
+  // with a small lookahead and a brief persistence after the window ends.
+  const win = state.dets.filter(d =>
+    d.t <= t + LOOK_AHEAD && d.t + WIN_S >= t - LOOK_BACK
+  );
 
   const bySpecies = new Map();
   win.forEach(d => {
