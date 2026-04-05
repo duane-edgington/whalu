@@ -86,9 +86,7 @@ class TestParseTimestamp:
 
     def test_uses_basename_only(self):
         # Ensures directory components do not confuse the regex
-        result = parse_timestamp(
-            "a/b/c/NRS03_20220715_083000.flac"
-        )
+        result = parse_timestamp("a/b/c/NRS03_20220715_083000.flac")
         assert result == "20220715T083000"
 
 
@@ -158,8 +156,12 @@ class TestListFiles:
         mock_client = MagicMock()
         mock_gcs.return_value = mock_client
         blobs = [
-            _make_blob("nrs/audio/01/nrs_01_2014-2015/audio/NRS01_20141015_000000.flac"),
-            _make_blob("nrs/audio/01/nrs_01_2014-2015/audio/NRS01_20141014_234015.flac"),
+            _make_blob(
+                "nrs/audio/01/nrs_01_2014-2015/audio/NRS01_20141015_000000.flac"
+            ),
+            _make_blob(
+                "nrs/audio/01/nrs_01_2014-2015/audio/NRS01_20141014_234015.flac"
+            ),
         ]
         mock_client.list_blobs.return_value = iter(blobs)
 

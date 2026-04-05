@@ -73,6 +73,7 @@ def _gcs() -> Client:
 # Listing helpers
 # ---------------------------------------------------------------------------
 
+
 def list_deployments(program: str, site: str) -> list[str]:
     """Return sorted deployment folder names for a given program and site.
 
@@ -94,12 +95,12 @@ def list_deployments(program: str, site: str) -> list[str]:
     blobs = client.list_blobs(bucket, prefix=prefix, delimiter="/")
     # Consume the iterator to populate blobs.prefixes
     list(blobs)
-    deployments = sorted(
-        p.rstrip("/").split("/")[-1] for p in (blobs.prefixes or [])
-    )
+    deployments = sorted(p.rstrip("/").split("/")[-1] for p in (blobs.prefixes or []))
     log.debug(
         "Found %d deployments under gs://%s/%s",
-        len(deployments), BUCKET, prefix,
+        len(deployments),
+        BUCKET,
+        prefix,
     )
     return deployments
 
@@ -131,7 +132,9 @@ def list_files(program: str, site: str, deployment: str) -> list[str]:
     ]
     log.debug(
         "Listed %d FLAC files under gs://%s/%s",
-        len(blobs), BUCKET, prefix,
+        len(blobs),
+        BUCKET,
+        prefix,
     )
     return sorted(blobs)
 
@@ -139,6 +142,7 @@ def list_files(program: str, site: str, deployment: str) -> list[str]:
 # ---------------------------------------------------------------------------
 # Timestamp parsing
 # ---------------------------------------------------------------------------
+
 
 def parse_timestamp(blob_name: str) -> str | None:
     """Extract an ISO-8601 UTC timestamp string from a NOAA blob name.
@@ -177,6 +181,7 @@ def parse_timestamp(blob_name: str) -> str | None:
 # ---------------------------------------------------------------------------
 # Audio download
 # ---------------------------------------------------------------------------
+
 
 def download_audio(
     blob_name: str,
@@ -230,6 +235,7 @@ def download_audio(
 # ---------------------------------------------------------------------------
 # Chunked streaming
 # ---------------------------------------------------------------------------
+
 
 def stream_chunks(
     blob_name: str,
