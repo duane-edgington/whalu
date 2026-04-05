@@ -58,7 +58,13 @@ const legend     = $("legend");
 const activeCards= $("active-cards");
 const emptyMsg   = $("empty-msg");
 const statsList  = $("stats-list");
-const audioHint  = $("audio-hint");
+// ── Timeline layout constants ──────────────────────────────────────
+const TL_LABEL_W = 44;   // px reserved for species code labels on the left
+const TL_TRACK_H = 18;   // px height of each species row
+const TL_TRACK_G = 5;    // px gap between rows
+const TL_AXIS_H  = 22;   // px for the time axis at the bottom
+const TL_PAD_TOP = 6;    // px top padding
+const WIN_S      = 5.0;  // model detection window size in seconds
 
 // ── Init ───────────────────────────────────────────────────────────
 async function init() {
@@ -200,11 +206,13 @@ function seekTo(t) {
 }
 
 function updatePosition() {
-  const pct = state.duration ? state.currentTime / state.duration : 0;
-  timeCur.textContent      = fmtTime(state.currentTime);
-  scrFill.style.width      = `${pct * 100}%`;
-  scrCursor.style.left     = `${pct * 100}%`;
-  tlCursor.style.left      = `${pct * 100}%`;
+  const pct  = state.duration ? state.currentTime / state.duration : 0;
+  const canW = tlCanvas.offsetWidth || tlWrap.offsetWidth || 800;
+  timeCur.textContent  = fmtTime(state.currentTime);
+  scrFill.style.width  = `${pct * 100}%`;
+  scrCursor.style.left = `${pct * 100}%`;
+  // Cursor lives inside the plot area (right of label margin)
+  tlCursor.style.left  = `${TL_LABEL_W + pct * (canW - TL_LABEL_W)}px`;
 }
 
 // ── Scrubber interaction ───────────────────────────────────────────
@@ -223,9 +231,14 @@ function setupScrubber() {
 
 // ── Timeline canvas ────────────────────────────────────────────────
 function drawTimeline() {
-  const dpr = window.devicePixelRatio || 1;
-  const W   = tlWrap.offsetWidth || 800;
-  const H   = 96;
+  const dpr     = window.devicePixelRatio || 1;
+  const W       = tlWrap.offsetWidth || 800;
+  const species = [...new Set(state.dets.map(d => d.sp))].sort();
+  const nSp     = Math.max(species.length, 1);
+  const H       = TL_PAD_TOP + nSp * (TL_TRACK_H + TL_TRACK_G) + TL_AXIS_H;
+  const plotW   = W - TL_LABEL_W;
+  const dur     = state.duration;
+
   tlCanvas.width        = W * dpr;
   tlCanvas.height       = H * dpr;
   tlCanvas.style.width  = W + "px";
@@ -237,44 +250,61 @@ function drawTimeline() {
   ctx.fillStyle = "#0c1a2e";
   ctx.fillRect(0, 0, W, H);
 
-  // Dynamic time grid — adapt tick interval to recording duration
-  const dur = state.duration;
+  // Time grid
   const tickIntervals = [10, 15, 20, 30, 60, 120, 300];
-  const tickInterval = tickIntervals.find(t => dur / t <= 20) || 300;
-  const labelEvery   = tickInterval * (dur <= 120 ? 2 : dur <= 600 ? 2 : 3);
+  const tickInterval  = tickIntervals.find(t => dur / t <= 20) || 300;
+  const labelEvery    = tickInterval * (dur <= 120 ? 2 : 3);
 
-  ctx.strokeStyle = "rgba(0,180,255,0.05)";
-  ctx.lineWidth = 1;
   for (let t = 0; t <= dur; t += tickInterval) {
-    const x = (t / dur) * W;
-    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
-    if (t > 0 && t % labelEvery === 0) {
-      ctx.fillStyle = "rgba(100,170,220,0.25)";
-      ctx.font = `10px 'Space Mono', monospace`;
-      ctx.fillText(fmtTime(t), x + 3, H - 4);
+    const x = TL_LABEL_W + (t / dur) * plotW;
+    ctx.strokeStyle = "rgba(0,180,255,0.07)";
+    ctx.lineWidth   = 1;
+    ctx.beginPath(); ctx.moveTo(x, TL_PAD_TOP); ctx.lineTo(x, H - TL_AXIS_H); ctx.stroke();
+    if (t % labelEvery === 0) {
+      ctx.fillStyle  = "rgba(100,170,220,0.35)";
+      ctx.font       = `10px 'Space Mono', monospace`;
+      ctx.textAlign  = "center";
+      ctx.fillText(fmtTime(t), x, H - 5);
     }
   }
 
-  if (!state.dets.length) return;
+  if (!species.length) return;
 
-  const TRACK_H = H - 8;
-  state.dets.forEach(d => {
-    const meta = spMeta(d.sp);
-    const x    = (d.t / state.duration) * W;
-    const barH = Math.max(4, d.c * TRACK_H * 0.88);
-    const y    = H - barH;
+  // Swim lanes — one row per species
+  species.forEach((sp, i) => {
+    const meta   = spMeta(sp);
+    const trackY = TL_PAD_TOP + i * (TL_TRACK_H + TL_TRACK_G);
 
-    ctx.globalAlpha = 0.55;
-    ctx.strokeStyle = meta.color;
-    ctx.lineWidth   = 1.5;
-    ctx.beginPath(); ctx.moveTo(x, H); ctx.lineTo(x, y + 3); ctx.stroke();
-
-    ctx.globalAlpha = 0.85;
+    // Species code label
+    ctx.textAlign   = "right";
+    ctx.font        = `11px 'Space Mono', monospace`;
     ctx.fillStyle   = meta.color;
-    ctx.beginPath(); ctx.arc(x, y, 2.5, 0, Math.PI * 2); ctx.fill();
-  });
+    ctx.globalAlpha = 0.75;
+    ctx.fillText(sp, TL_LABEL_W - 6, trackY + TL_TRACK_H * 0.72);
 
-  ctx.globalAlpha = 1;
+    // Row background
+    ctx.globalAlpha = 1;
+    ctx.fillStyle   = "rgba(0,180,255,0.025)";
+    ctx.fillRect(TL_LABEL_W, trackY, plotW, TL_TRACK_H);
+
+    // Detection windows — rectangles spanning the 5s window
+    state.dets.filter(d => d.sp === sp).forEach(d => {
+      const x1    = TL_LABEL_W + (d.t / dur) * plotW;
+      const x2    = TL_LABEL_W + (Math.min(d.t + WIN_S, dur) / dur) * plotW;
+      const rectW = Math.max(2, x2 - x1);
+
+      // Body fill — opacity encodes confidence
+      ctx.globalAlpha = 0.25 + d.c * 0.55;
+      ctx.fillStyle   = meta.color;
+      ctx.fillRect(x1, trackY + 2, rectW, TL_TRACK_H - 4);
+
+      // Top edge accent
+      ctx.globalAlpha = 0.6 + d.c * 0.4;
+      ctx.fillRect(x1, trackY + 2, rectW, 2);
+    });
+
+    ctx.globalAlpha = 1;
+  });
 }
 
 function drawMini() {
@@ -312,21 +342,27 @@ window.addEventListener("resize", () => {
 
 // ── Timeline hover & click ─────────────────────────────────────────
 function setupTimelineInteraction() {
-  tlWrap.addEventListener("mousemove", e => {
-    const rect = tlWrap.getBoundingClientRect();
-    const pct  = (e.clientX - rect.left) / rect.width;
-    const t    = pct * state.duration;
-    const nearest = state.dets.reduce((best, d) => {
-      const dist = Math.abs(d.t - t);
-      return dist < (best ? Math.abs(best.t - t) : Infinity) ? d : best;
-    }, null);
+  function xToTime(clientX) {
+    const rect  = tlWrap.getBoundingClientRect();
+    const plotW = rect.width - TL_LABEL_W;
+    const px    = clientX - rect.left - TL_LABEL_W;
+    return Math.max(0, Math.min(state.duration, (px / plotW) * state.duration));
+  }
 
-    if (nearest && Math.abs(nearest.t - t) < (state.duration / tlWrap.offsetWidth) * 20) {
-      const meta = spMeta(nearest.sp);
+  tlWrap.addEventListener("mousemove", e => {
+    const t = xToTime(e.clientX);
+    // Find detection whose window contains t, favouring highest confidence
+    const hit = state.dets
+      .filter(d => t >= d.t && t < d.t + WIN_S)
+      .sort((a, b) => b.c - a.c)[0];
+
+    if (hit) {
+      const meta = spMeta(hit.sp);
+      const rect = tlWrap.getBoundingClientRect();
       tlTooltip.innerHTML = `
-        <div class="tl-tooltip-sp" style="color:${meta.color}">${meta.emoji} ${meta.name}</div>
-        <div class="tl-tooltip-detail">${fmtTime(nearest.t)} · ${Math.round(nearest.c * 100)}% conf</div>`;
-      const tipW = 160;
+        <div class="tl-tooltip-sp" style="color:${meta.color}">${meta.emoji || ""} ${meta.name}</div>
+        <div class="tl-tooltip-detail">${fmtTime(hit.t)}-${fmtTime(hit.t + WIN_S)} · ${Math.round(hit.c * 100)}% conf</div>`;
+      const tipW = 170;
       let left   = e.clientX - rect.left - tipW / 2;
       left = Math.max(4, Math.min(rect.width - tipW - 4, left));
       tlTooltip.style.left = left + "px";
@@ -339,11 +375,7 @@ function setupTimelineInteraction() {
 
   tlWrap.addEventListener("mouseleave", () => tlTooltip.classList.remove("visible"));
 
-  tlWrap.addEventListener("click", e => {
-    const rect = tlWrap.getBoundingClientRect();
-    const pct  = (e.clientX - rect.left) / rect.width;
-    seekTo(pct * state.duration);
-  });
+  tlWrap.addEventListener("click", e => seekTo(xToTime(e.clientX)));
 }
 
 // ── Active detection cards ─────────────────────────────────────────
