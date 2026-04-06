@@ -771,7 +771,7 @@ def _title_text() -> Text:
     t.append("  whalu\n", style=f"bold {_O}")
     t.append("\n")
     t.append("  marine bioacoustics\n", style="white")
-    t.append("  Perch v2  ·  Gemma 4\n", style=_D)
+    t.append("  multispecies whale model\n", style=_D)
     return t
 
 
@@ -849,7 +849,7 @@ def _print_banner() -> None:
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
         prog="whalu",
-        description="Marine bioacoustics detection  Perch v2 + Gemma 4.",
+        description="Marine bioacoustics detection pipeline.",
         add_help=True,
     )
     p.add_argument("-v", "--verbose", action="store_true", help="Enable DEBUG logging")

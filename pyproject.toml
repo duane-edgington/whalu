@@ -1,7 +1,7 @@
 [project]
 name = "whalu"
 version = "0.1.1"
-description = "Marine bioacoustics detection pipeline using Perch v2 and Gemma 4"
+description = "Marine bioacoustics detection pipeline"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
