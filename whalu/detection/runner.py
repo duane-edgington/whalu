@@ -91,7 +91,23 @@ def run_detections(
             break
 
         outputs = model.embed(audio[start:end])
-        logits_arr: np.ndarray = outputs.logits[logits_key]
+        #logits_arr: np.ndarray = outputs.logits[logits_key]
+
+        # Original line (causing error)
+        # logits_arr: np.ndarray = outputs.logits[logits_key]
+
+        # New code:
+        if 'label' in outputs.logits:
+            logits_arr = outputs.logits['label']
+            log.info("Using 'label' key for logits (perch_v2 model)")
+        elif logits_key in outputs.logits:
+            logits_arr = outputs.logits[logits_key]
+            log.info(f"Using '{logits_key}' key for logits")
+        else:
+            # Fallback: use the first available key
+            available_keys = list(outputs.logits.keys())
+            log.warning(f"Expected '{logits_key}' or 'label', found {available_keys}. Using first: {available_keys[0]}")
+            logits_arr = outputs.logits[available_keys[0]]
         while logits_arr.ndim > 1:
             logits_arr = logits_arr[0]
 
@@ -110,7 +126,13 @@ def run_detections(
             sources.append(source_name)
             starts.append(t_start)
             ends.append(t_end)
-            species_list.append(model.class_list.classes[idx])
+            #species_list.append(model.class_list.classes[idx])
+            # Handle the dictionary wrapper for class_list (perch_v2 model)
+            if isinstance(model.class_list, dict):
+                class_list_obj = model.class_list['labels']
+            else:
+                class_list_obj = model.class_list
+            species_list.append(class_list_obj.classes[idx])
             confidences.append(float(probs[idx]))
             ranks.append(rank)
 
