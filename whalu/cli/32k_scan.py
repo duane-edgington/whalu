@@ -21,15 +21,6 @@ uv run whalu-scan local32k --start 2018-04 --output-dir data/detections/local32k
 # Local 32 kHz with custom root directory
 uv run whalu-scan local32k --start 2018-04 --root /mnt/PAM_Analysis/GoogleMultiSpeciesWhaleModel2/resampled_32kHz
 
-# Local 24 kHz files (Google Multi-Species Whale Model — pre-resampled)
-uv run whalu-scan local24k --start 2018-04 --max-files 1 --limit-hours 1
-
-# Local 24 kHz full month
-uv run whalu-scan local24k --start 2018-04 --output-dir data/detections/local24k
-
-# Local 24 kHz with custom root directory
-uv run whalu-scan local24k --start 2018-04 --root /mnt/PAM_Analysis/GoogleMultiSpeciesWhaleModel2/resampled_24kHz
-
 # Orcasound validation sample
 uv run whalu-scan orcasound
 
@@ -72,7 +63,6 @@ from whalu.analysis import (
 from whalu.models.loader import get_whale_model
 import whalu.data.mbari as mbari
 import whalu.data.mbari_local_32k as mbari_local_32k
-import whalu.data.mbari_local_24k as mbari_local_24k
 import whalu.data.noaa as noaa
 import whalu.data.orcasound as orcasound  # type: ignore[reportMissingImports]
 from whalu.detection.runner import run_detections
@@ -366,160 +356,6 @@ def cmd_local32k(args: argparse.Namespace) -> None:
                             chunk_start_s,
                             chunk_dur_s,
                         ) in mbari_local_32k.stream_chunks(path, model.sample_rate):
-                            chunk_idx = int(chunk_start_s / 3600) + 1
-                            progress.update(
-                                chunk_task,
-                                description=f"[dim]{fname[:28]}  {chunk_idx:02d}/{n_chunks}h[/dim]",
-                            )
-                            chunk_df = run_detections(
-                                model,
-                                chunk_audio,
-                                source_name=source_name,
-                                offset_s=chunk_start_s,
-                            )
-                            chunk_dfs.append(chunk_df)
-                            total_dur += chunk_dur_s
-                            progress.advance(chunk_task)
-                        progress.remove_task(chunk_task)
-                        df = (
-                            pl.concat(chunk_dfs)
-                            if chunk_dfs
-                            else pl.DataFrame(
-                                {
-                                    "source": [],
-                                    "time_start_s": [],
-                                    "time_end_s": [],
-                                    "species": [],
-                                    "confidence": [],
-                                    "rank": [],
-                                }
-                            )
-                        )
-                        log.info(
-                            "[green]✓[/green] %-42s  [cyan]%.1fh[/cyan]  %d detections",
-                            fname,
-                            total_dur / 3600,
-                            len(df),
-                        )
-
-                    store.write(df, stem)
-                    processed += 1
-                except Exception as exc:
-                    log.error("[red]✗[/red] %s: %s", fname, exc, exc_info=True)
-                    errors += 1
-
-                progress.advance(task)
-
-    console.print()
-    stats = Table.grid(padding=(0, 2))
-    stats.add_row(
-        Text(f"✓ {processed} processed", style="bold green"),
-        Text(f"↷ {skipped} skipped", style="dim"),
-        Text(f"✗ {errors} errors", style="bold red" if errors else "dim"),
-        Text(f"∑ {total} total", style="bold"),
-    )
-    console.print(
-        Panel(stats, title="Run complete", border_style="green", padding=(0, 2))
-    )
-    _render_summary(store)
-
-
-# ---------------------------------------------------------------------------
-# Local 24 kHz (Google Multi-Species Whale Model)
-# ---------------------------------------------------------------------------
-
-
-def cmd_local24k(args: argparse.Namespace) -> None:
-    """Scan pre-resampled 24 kHz local WAV files for use with the Google
-    Multi-Species Whale Model (GMWM), which requires 24 kHz input."""
-    start = _parse_ym(args.start)
-    end = _parse_ym(args.end) if args.end else start
-    periods = _month_range(start, end)
-    limit_s = args.limit_hours * 3600 if args.limit_hours else None
-
-    # Allow --root CLI override; falls back to module default / env var.
-    root = Path(args.root) if args.root else None
-
-    model = get_whale_model()
-    store = DetectionStore(args.output_dir)
-
-    total = skipped = processed = errors = 0
-
-    with _progress() as progress:
-        for year, month in periods:
-            console.print(
-                Rule(
-                    f"[bold cyan]Local 24 kHz  ·  {year}-{month:02d}",
-                    style="cyan",
-                )
-            )
-
-            paths = mbari_local_24k.list_files(year, month, root=root)
-            if not paths:
-                log.warning(
-                    "No WAV files found for %d-%02d under %s",
-                    year,
-                    month,
-                    root or mbari_local_24k.DEFAULT_ROOT,
-                )
-                continue
-
-            if args.max_files:
-                paths = paths[: args.max_files]
-
-            suffix = f"  [dim](limit {args.limit_hours}h/file)[/dim]" if limit_s else ""
-            log.info(
-                "Processing [bold cyan]%d[/bold cyan] files%s → [dim]%s[/dim]",
-                len(paths),
-                suffix,
-                args.output_dir,
-            )
-
-            task = progress.add_task(f"{year}-{month:02d}", total=len(paths))
-
-            for path in paths:
-                fname = Path(path).name
-                stem = f"local24k_{year}_{month:02d}_{Path(path).stem}"
-                if limit_s:
-                    stem += f"_lim{args.limit_hours}h"
-                total += 1
-
-                progress.update(task, description=f"[cyan]{fname[:40]}[/cyan]")
-
-                if store.is_done(stem):
-                    log.debug("Skip (already done): %s", stem)
-                    skipped += 1
-                    progress.advance(task)
-                    continue
-
-                try:
-                    import polars as pl
-
-                    source_name = f"local24k/{Path(path).stem}"
-
-                    if limit_s is not None:
-                        audio, dur = mbari_local_24k.download_audio(
-                            path, model.sample_rate, limit_s=limit_s
-                        )
-                        log.info(
-                            "[green]✓[/green] %-42s  [cyan]%.2fh[/cyan]",
-                            fname,
-                            dur / 3600,
-                        )
-                        df = run_detections(model, audio, source_name=source_name)
-                    else:
-                        chunk_dfs: list[pl.DataFrame] = []
-                        total_dur = 0.0
-                        n_chunks = 24
-                        chunk_task = progress.add_task(
-                            f"[dim]{fname[:32]}  chunk 0/{n_chunks}[/dim]",
-                            total=n_chunks,
-                        )
-                        for (
-                            chunk_audio,
-                            chunk_start_s,
-                            chunk_dur_s,
-                        ) in mbari_local_24k.stream_chunks(path, model.sample_rate):
                             chunk_idx = int(chunk_start_s / 3600) + 1
                             progress.update(
                                 chunk_task,
@@ -1145,18 +981,6 @@ def _print_banner() -> None:
             "  --root /mnt/PAM_Analysis/.../resampled_32kHz",
             "override root directory",
         ),
-        (
-            True,
-            "whalu scan local24k",
-            "--start 2018-04",
-            "detect whales · local 24 kHz (Google Multi-Species Whale Model)",
-        ),
-        (
-            False,
-            "",
-            "  --root /mnt/PAM_Analysis/.../resampled_24kHz",
-            "override root directory",
-        ),
         (True, "whalu scan orcasound", "", "detect whales · Orcasound / Puget Sound"),
         (
             True,
@@ -1272,43 +1096,6 @@ def build_parser() -> argparse.ArgumentParser:
     )
     l.add_argument("--output-dir", default="data/detections/local32k")
 
-    # ── local24k ─────────────────────────────────────────────────────────────
-    l2 = scan_sub.add_parser(
-        "local24k",
-        help="Local 24 kHz pre-resampled WAV files for Google Multi-Species Whale Model",
-    )
-    l2.add_argument("--start", required=True, metavar="YYYY-MM")
-    l2.add_argument(
-        "--end",
-        metavar="YYYY-MM",
-        help="End year-month inclusive (default: same as --start)",
-    )
-    l2.add_argument(
-        "--root",
-        metavar="PATH",
-        default=None,
-        help=(
-            "Root directory containing YYYY/MM/*.wav files "
-            "(default: $WHALU_LOCAL_24K_ROOT or "
-            "/mnt/PAM_Analysis/GoogleMultiSpeciesWhaleModel2/resampled_24kHz)"
-        ),
-    )
-    l2.add_argument(
-        "--max-files",
-        type=int,
-        default=None,
-        metavar="N",
-        help="Only process the first N files (default: all)",
-    )
-    l2.add_argument(
-        "--limit-hours",
-        type=float,
-        default=None,
-        metavar="N",
-        help="Only process the first N hours of each file (default: full file)",
-    )
-    l2.add_argument("--output-dir", default="data/detections/local24k")
-
     o = scan_sub.add_parser("orcasound", help="Orcasound (s3://acoustic-sandbox)")
     o.add_argument(
         "--key",
@@ -1396,8 +1183,6 @@ def main() -> None:
             cmd_mbari(args)
         elif args.source == "local32k":
             cmd_local32k(args)
-        elif args.source == "local24k":
-            cmd_local24k(args)
         elif args.source == "orcasound":
             cmd_orcasound(args)
         elif args.source == "noaa":

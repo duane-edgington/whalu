@@ -13,10 +13,10 @@ def get_whale_model():
     """Load (or return cached) Whale model (downloads on first run)."""
     global _whale_model
     if _whale_model is None:
-        #log.info("Loading [bold]multispecies_whale[/bold] model...")
-        log.info("Loading [bold]perch_v2[/bold] model...")
-        #_whale_model = load_model_by_name("multispecies_whale")
-        _whale_model = load_model_by_name("perch_v2")
+        log.info("Loading [bold]multispecies_whale[/bold] model...")
+        #log.info("Loading [bold]perch_v2[/bold] model...")
+        _whale_model = load_model_by_name("multispecies_whale")
+        #_whale_model = load_model_by_name("perch_v2")
         #log.info(
         #    "Model ready  sample_rate=[cyan]%d[/cyan]  classes=[cyan]%s[/cyan]",
         #    _whale_model.sample_rate,
